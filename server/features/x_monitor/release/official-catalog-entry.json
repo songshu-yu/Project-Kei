@@ -1,0 +1,22 @@
+{
+  "asset_name": "x_monitor-1.1.0.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [
+    "intel_sources"
+  ],
+  "manifest_sha256": "aa028f6bdf1ac611f211da0c2ce5a6566cf113ac51f908acea8708c299fcd3d5",
+  "module_id": "x_monitor",
+  "name": "X/Nitter 用户资料与言论采集",
+  "optional_dependencies": [],
+  "package_sha256": "3ab7d1b0425883e7d0e8ec81ad2323d9cacbfb9af655413307611ceaa7052669",
+  "package_size": 110315,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/x_monitor-1.1.0.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.1.0"
+}

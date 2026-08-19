@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "x_monitor",
+  "name": "X/Nitter 用户资料与言论采集",
+  "version": "1.1.0",
+  "type": "in_process",
+  "required": false,
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "entrypoint": "backend.register",
+  "dependencies": [
+    "intel_sources"
+  ],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "api_namespaces": [
+    "/api/v1/x"
+  ],
+  "legacy_endpoints": [
+    "/dashboard/intel-sources/x-profiles/resolve",
+    "/dashboard/intel-sources/x-posts",
+    "/dashboard/intel-sources/x-posts/fetch"
+  ],
+  "dashboard_entrypoint": "dashboard/index.js",
+  "data_namespace": "x_monitor",
+  "permissions": [
+    "local_state"
+  ],
+  "requires_restart": true
+}

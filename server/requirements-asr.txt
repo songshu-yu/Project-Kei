@@ -1,0 +1,3 @@
+# Compatibility entry. Install Core and then the authoritative optional ASR lock.
+-r ../requirements/core-win.lock.txt
+-r ../requirements/asr-win.lock.txt

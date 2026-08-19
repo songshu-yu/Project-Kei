@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "engine_id": "gpt-sovits-v2pro-nvidia50",
+  "provider_key": "gpt-sovits",
+  "provider_protocol_version": "pk210-tts-v1",
+  "version": "v2Pro-20250606",
+  "upstream": {
+    "repository": "https://github.com/RVC-Boss/GPT-SoVITS",
+    "release": "20250606v2pro",
+    "commit": "d7c2210da8c013e81a94bfc7b811a477c99fd506",
+    "release_url": "https://github.com/RVC-Boss/GPT-SoVITS/releases/tag/20250606v2pro",
+    "license": "MIT",
+    "license_url": "https://github.com/RVC-Boss/GPT-SoVITS/blob/d7c2210da8c013e81a94bfc7b811a477c99fd506/LICENSE"
+  },
+  "distribution": {
+    "source_id": "official-huggingface-windows-nvidia50",
+    "repository": "https://huggingface.co/lj1995/GPT-SoVITS-windows-package",
+    "revision": "fb387b7a65a5441e5e3985f4ab9b721a9d455363",
+    "download_url": "https://huggingface.co/lj1995/GPT-SoVITS-windows-package/resolve/fb387b7a65a5441e5e3985f4ab9b721a9d455363/GPT-SoVITS-v2pro-20250604-nvidia50.7z?download=true",
+    "archive_name": "GPT-SoVITS-v2pro-20250604-nvidia50.7z",
+    "archive_format": "7z",
+    "archive_root": "GPT-SoVITS-v2pro-20250604-nvidia50",
+    "size_bytes": 8835144925,
+    "integrity": {
+      "algorithm": "sha256",
+      "digest": "97b4edcd451c42357db7e26e6c1c877ca5d85144fe97beaff6d7005d35bee008"
+    }
+  },
+  "api_styles": {
+    "default": "auto",
+    "supported": ["auto", "api_py", "legacy_v2"],
+    "api_py": {"method": "POST", "path": "/"},
+    "legacy_v2": {"method": "POST", "path": "/tts"}
+  },
+  "health_check": {
+    "method": "GET",
+    "path": "/docs",
+    "timeout_seconds": 3.0
+  },
+  "capabilities": {
+    "operations": ["synthesize", "health", "cancel", "close"],
+    "audio_formats": ["wav"],
+    "streaming": false,
+    "default_timeout_seconds": 60.0,
+    "port": 9880
+  },
+  "installation": {
+    "bundled": false,
+    "source_tree_policy": "do_not_scan",
+    "local_config": "server/data/gpt_sovits_engine.local.json",
+    "default_status": "unregistered",
+    "required_files": ["api.py", "runtime/python.exe"],
+    "marker_file": ".project-kei-engine.json"
+  },
+  "launcher": {
+    "python_relative": "runtime/python.exe",
+    "api_relative": "api.py",
+    "host": "127.0.0.1",
+    "port": 9880
+  },
+  "archive_limits": {
+    "max_files": 50000,
+    "max_uncompressed_bytes": 53687091200,
+    "max_compression_ratio": 500
+  }
+}

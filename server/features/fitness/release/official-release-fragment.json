@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "module_id": "fitness",
+  "name": "健身打卡",
+  "version": "1.0.3",
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "release_tag": "modules-2026.08.08",
+  "asset_name": "fitness-1.0.3.zip",
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "permissions": [
+    "local_state"
+  ],
+  "data_policy": "preserve_on_uninstall",
+  "requires_restart": true
+}

@@ -1,0 +1,22 @@
+{
+  "asset_name": "affection_memory-1.0.4.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [
+    "conversation"
+  ],
+  "manifest_sha256": "6e45f315af8a013dc5797c7b77f1ca0a1a1d6b334c941c1ab978243af5deb751",
+  "module_id": "affection_memory",
+  "name": "好感度与长期记忆",
+  "optional_dependencies": [],
+  "package_sha256": "7e74beb9a07509829edf5b6e3504a4e930ae546c0f6ea3c1a79a12486a279d21",
+  "package_size": 74871,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/affection_memory-1.0.4.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.0.4"
+}

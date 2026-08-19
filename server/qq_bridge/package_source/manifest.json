@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "qq_bridge",
+  "name": "QQ Bridge",
+  "version": "0.1.24",
+  "type": "sidecar",
+  "required": false,
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "dependencies": [],
+  "optional_dependencies": [
+    "calendar",
+    "conversation",
+    "daily_briefing",
+    "demon_slayer",
+    "fitness",
+    "focus",
+    "voice"
+  ],
+  "runtime_requirements": [
+    {
+      "id": "node",
+      "supported_major_versions": [20, 22, 24, 26],
+      "architecture": "x64"
+    }
+  ],
+  "conflicts": [],
+  "api_namespaces": [
+    "/api/v1/qq-control"
+  ],
+  "legacy_endpoints": [
+    "/dashboard/qq-bridge/status",
+    "/dashboard/qq-bridge/start",
+    "/dashboard/qq-bridge/stop",
+    "/dashboard/briefing/schedule",
+    "/dashboard/life-support/schedule",
+    "/life-support/reminder"
+  ],
+  "dashboard_entrypoint": "dashboard/index.js",
+  "data_namespace": "qq_bridge",
+  "config_schema": null,
+  "permissions": [
+    "local_state"
+  ],
+  "requires_restart": false,
+  "sidecar": {
+    "adapter": "qq_bridge",
+    "healthcheck_timeout_seconds": 15
+  }
+}

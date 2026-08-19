@@ -1,0 +1,22 @@
+{
+  "asset_name": "gpt_sovits_engine_provider-1.0.2.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [
+    "voice"
+  ],
+  "manifest_sha256": "1e1eafae166ac03adf1dfc06d66ccbfb94ea72c5baa00fb578630ca4baf0584e",
+  "module_id": "gpt_sovits_engine_provider",
+  "name": "GPT-SoVITS Engine Provider",
+  "optional_dependencies": [],
+  "package_sha256": "3971228df9f098582076dc551d5c22d4be610a059102878f35e3465e33391c6e",
+  "package_size": 98648,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.12/gpt_sovits_engine_provider-1.0.2.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.12",
+  "requires_restart": false,
+  "version": "1.0.2"
+}

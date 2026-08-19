@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "algorithm": "sha256",
+  "scope": "tracked lock-file content; package versions are exact in each lock",
+  "files": {
+    "core-win.lock.txt": "8280e23581206b7ef21ef001c4de580cb732eeb01607d5855fa6424216d99fe5",
+    "asr-win.lock.txt": "67c44d7d715f37bf789640b7c2f5b76dc98f081656902ad73db987f544ef5c16",
+    "dev-win.lock.txt": "4cbd205c84455140cdd5c276224a60bdd97a61cf9adba364175df52b5afa38c0",
+    "voice-media-win.lock.txt": "8ce59b21ae0e2345595abbee3dd5222f53d5663bf0cf4e3f65d8243f574ed00a"
+  }
+}

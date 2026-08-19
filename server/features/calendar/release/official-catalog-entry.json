@@ -1,0 +1,20 @@
+{
+  "asset_name": "calendar-1.0.0.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [],
+  "manifest_sha256": "8f743dc960022c4a0febe475149d803184c9e715ffd4fa708a30d2c9ee278653",
+  "module_id": "calendar",
+  "name": "日历备忘与修炼记录",
+  "optional_dependencies": [],
+  "package_sha256": "0d1df169d788574989b616f26d080b0516b449da340c675ae85e9aaed1af24a8",
+  "package_size": 38764,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/calendar-1.0.0.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.0.0"
+}

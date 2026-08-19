@@ -1,0 +1,24 @@
+# Project Kei optional voice-media Windows wheel lock
+# Python: CPython >=3.10,<3.14; platform: Windows x64 only
+# PyPI release file hashes:
+# https://pypi.org/project/silk-python/0.2.8/#files
+# https://pypi.org/project/cffi/1.17.1/#files
+# https://pypi.org/project/pycparser/2.22/#files
+cffi==1.17.1; python_version == "3.10" \
+    --hash=sha256:0f048dcf80db46f0098ccac01132761580d28e28bc0f78ae0d58048063317e15
+cffi==1.17.1; python_version == "3.11" \
+    --hash=sha256:caaf0640ef5f5517f49bc275eca1406b0ffa6aa184892812030f04c2abf589a0
+cffi==1.17.1; python_version == "3.12" \
+    --hash=sha256:51392eae71afec0d0c8fb1a53b204dbb3bcabcb3c9b807eedf3e1e6ccf2de903
+cffi==1.17.1; python_version == "3.13" \
+    --hash=sha256:f6a16c31041f09ead72d69f583767292f750d24913dadacf5756b966aacb3f1a
+pycparser==2.22 \
+    --hash=sha256:c3702b6d3dd8c7abc1afa565d7e63d53a1d0bd86cdc24edd75470f4de499cfcc
+silk-python==0.2.8; python_version == "3.10" \
+    --hash=sha256:6f4533e320239c0599ef272654f230020442d94273be457f136ce8c48b4aa808
+silk-python==0.2.8; python_version == "3.11" \
+    --hash=sha256:3afcebce1dd18130d352a2d669a8b16977c36b789d5f708c379959a08b05a3f5
+silk-python==0.2.8; python_version == "3.12" \
+    --hash=sha256:b9bb030589150e0d91f8148971eebf6f9211e6839af64dd39b26b9802be242b0
+silk-python==0.2.8; python_version == "3.13" \
+    --hash=sha256:450dc26c71e9fd3cbdc694319d5fb24aae50d20321c9e29982d358aafbee628c

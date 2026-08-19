@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "module_id": "voice",
+  "name": "语音公共契约与编排",
+  "version": "1.0.9",
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "release_tag": "modules-2026.08.12",
+  "asset_name": "voice-1.0.9.zip",
+  "dependencies": [
+    "conversation"
+  ],
+  "optional_dependencies": [
+    "calendar"
+  ],
+  "conflicts": [],
+  "permissions": [
+    "local_state"
+  ],
+  "data_policy": "preserve_on_uninstall",
+  "requires_restart": true
+}

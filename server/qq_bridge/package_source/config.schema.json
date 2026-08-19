@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Project Kei QQ Bridge local configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "QQBOT_APPID": {
+      "type": "string",
+      "minLength": 1,
+      "description": "QQ Bot App ID; stored only in the persistent local .env."
+    },
+    "QQBOT_SECRET": {
+      "type": "string",
+      "minLength": 1,
+      "writeOnly": true,
+      "description": "QQ Bot App Secret; stored only in the persistent local .env."
+    },
+    "QQBOT_ALLOW_FROM": {
+      "type": "string",
+      "minLength": 1,
+      "writeOnly": true,
+      "description": "Comma-separated C2C allowlist; stored only in the persistent local .env."
+    },
+    "QQBOT_REPLY_WITH_VOICE": {
+      "type": "boolean",
+      "default": false,
+      "description": "Explicit non-secret opt-in for one voice attachment after eligible conversation replies."
+    },
+    "QQBOT_MEDIA_UPLOAD_CAPABILITY": {
+      "type": "string",
+      "enum": ["unknown", "available", "unavailable", "denied"],
+      "default": "unknown",
+      "description": "Non-secret operator declaration of the bot's QQ C2C media-upload permission; never inferred or actively probed."
+    }
+  },
+  "required": [
+    "QQBOT_APPID",
+    "QQBOT_SECRET",
+    "QQBOT_ALLOW_FROM"
+  ]
+}

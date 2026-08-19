@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "module_id": "x_monitor",
+  "name": "X/Nitter 用户资料与言论采集",
+  "version": "1.1.0",
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "release_tag": "modules-2026.08.02",
+  "asset_name": "x_monitor-1.1.0.zip",
+  "dependencies": [
+    "intel_sources"
+  ],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "permissions": [
+    "local_state"
+  ],
+  "data_policy": "preserve_on_uninstall",
+  "requires_restart": true
+}

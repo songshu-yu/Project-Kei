@@ -1,0 +1,3 @@
+# Optional Windows voice-media dependency. The public installer consumes only
+# voice-media-win.lock.txt with --require-hashes and binary-only resolution.
+silk-python==0.2.8

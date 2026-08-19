@@ -1,0 +1,357 @@
+name: windows-install
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-install:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    env:
+      PIP_NO_CACHE_DIR: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      npm_config_prefer_offline: "false"
+      PROJECT_KEI_NO_PAUSE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: "x64"
+
+      - uses: actions/setup-node@v4
+        if: matrix.python-version == '3.11'
+        with:
+          node-version: "22"
+
+      - name: Create fresh empty package caches
+        shell: powershell
+        run: |
+          $pipCache = Join-Path $env:RUNNER_TEMP ("pk020-pip-cache-" + [guid]::NewGuid().ToString("N"))
+          $npmCache = Join-Path $env:RUNNER_TEMP ("pk020-npm-cache-" + [guid]::NewGuid().ToString("N"))
+          New-Item -ItemType Directory -Path $pipCache | Out-Null
+          New-Item -ItemType Directory -Path $npmCache | Out-Null
+          if ((Get-ChildItem -LiteralPath $pipCache -Force | Measure-Object).Count -ne 0) {
+            throw "fresh pip cache is not empty"
+          }
+          if ((Get-ChildItem -LiteralPath $npmCache -Force | Measure-Object).Count -ne 0) {
+            throw "fresh npm cache is not empty"
+          }
+          "PIP_CACHE_DIR=$pipCache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "npm_config_cache=$npmCache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify Python and PowerShell target matrix
+        shell: pwsh
+        env:
+          PK020_EXPECTED_PYTHON: ${{ matrix.python-version }}
+        run: |
+          if ($PSVersionTable.PSVersion -lt [version]"7.4") {
+            throw "PowerShell 7.4+ is required"
+          }
+          python -c "import os,platform,struct,sys; assert f'{sys.version_info[0]}.{sys.version_info[1]}' == os.environ['PK020_EXPECTED_PYTHON']; assert struct.calcsize('P') * 8 == 64; assert platform.machine().lower() in ('amd64','x86_64')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          powershell.exe -NoProfile -Command 'if ($PSVersionTable.PSVersion -lt [version]"5.1" -or $PSVersionTable.PSVersion -ge [version]"6.0") { exit 1 }'
+          exit $LASTEXITCODE
+
+      - name: Verify Node 22 x64 target
+        if: matrix.python-version == '3.11'
+        shell: pwsh
+        run: |
+          node -e "if (process.versions.node.split('.')[0] !== '22' || process.arch !== 'x64') process.exit(1)"
+          exit $LASTEXITCODE
+
+      - name: Prove CI copy policy before touching the working tree
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:GITHUB_WORKSPACE
+          python -B .\server\tests\test_windows_ci_copy.py
+          exit $LASTEXITCODE
+
+      - name: Create filtered isolated non-system-drive copy
+        shell: powershell
+        run: |
+          $unicodePath = -join ([char[]](0x4E2D, 0x6587, 0x8DEF, 0x5F84))
+          $target = Join-Path $env:RUNNER_TEMP "Project Kei $unicodePath"
+          $copyScript = Join-Path $env:GITHUB_WORKSPACE 'scripts\windows_ci_copy.py'
+          & python -B $copyScript --source $env:GITHUB_WORKSPACE --target $target
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          subst R: $target
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          'PK020_ROOT=R:\' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Windows PowerShell 5.1 pre-install doctor
+        shell: powershell
+        run: |
+          if ($PSVersionTable.PSVersion -lt [version]"5.1" -or $PSVersionTable.PSVersion -ge [version]"6.0") {
+            throw "this gate must run in Windows PowerShell 5.1"
+          }
+          Set-Location -LiteralPath $env:PK020_ROOT
+          & .\doctor.bat --profile core
+          if ($LASTEXITCODE -eq 0) { throw "pre-install doctor unexpectedly succeeded" }
+          exit 0
+
+      - name: PowerShell 7.4 pre-install doctor
+        shell: pwsh
+        run: |
+          if ($PSVersionTable.PSVersion -lt [version]"7.4") {
+            throw "this gate must run in PowerShell 7.4+"
+          }
+          Set-Location -LiteralPath $env:PK020_ROOT
+          & .\scripts\doctor.ps1 --profile core
+          if ($LASTEXITCODE -eq 0) { throw "pre-install doctor unexpectedly succeeded" }
+          exit 0
+
+      - name: Install Core and run doctor and ASGI health
+        shell: powershell
+        env:
+          PK020_EXPECTED_PYTHON: ${{ matrix.python-version }}
+          PROJECT_KEI_TEST_MODE: "1"
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          if ($env:PK020_EXPECTED_PYTHON -ne "3.11") {
+            python -m venv .venv
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          & .\setup.bat --profile core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\scripts\python.ps1 -c "import os,struct,sys; assert f'{sys.version_info[0]}.{sys.version_info[1]}' == os.environ['PK020_EXPECTED_PYTHON']; assert struct.calcsize('P') * 8 == 64"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\doctor.bat --profile core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $healthCheck = @'
+          import asyncio
+          import httpx
+          import api
+
+          async def check():
+              transport = httpx.ASGITransport(app=api.app, client=("127.0.0.1", 53000))
+              async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                  response = await client.get("/")
+                  assert response.status_code == 200
+                  assert response.json()["status"] == "online"
+
+          asyncio.run(check())
+          '@
+          $healthFile = Join-Path $env:RUNNER_TEMP 'pk020-health-check.py'
+          Set-Content -LiteralPath $healthFile -Value $healthCheck -Encoding utf8
+          & .\scripts\python.ps1 $healthFile
+          $healthExit = $LASTEXITCODE
+          Remove-Item -LiteralPath $healthFile -Force
+          exit $healthExit
+
+      - name: Prove Core setup is idempotent on the primary Python
+        if: matrix.python-version == '3.11'
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          $before = (Get-Item -LiteralPath .\.venv\pyvenv.cfg).LastWriteTimeUtc
+          & .\setup.bat --profile core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $after = (Get-Item -LiteralPath .\.venv\pyvenv.cfg).LastWriteTimeUtc
+          if ($before -ne $after) { throw "healthy venv was rebuilt" }
+
+      - name: Reuse Core and run doctor in PowerShell 7.4
+        if: matrix.python-version == '3.11'
+        shell: pwsh
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          & .\scripts\setup.ps1 --profile core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\scripts\doctor.ps1 --profile core
+          exit $LASTEXITCODE
+
+      - name: Install and import voice and dev locks
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          & .\setup.bat --profile voice
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\doctor.bat --profile voice
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\setup.bat --profile dev
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\doctor.bat --profile dev
+          exit $LASTEXITCODE
+
+      - name: Install QQ profile through the public setup entry
+        if: matrix.python-version == '3.11'
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          & .\setup.bat --profile qq
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\doctor.bat --profile qq
+          exit $LASTEXITCODE
+
+      - name: Audit the classified Python test inventory
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          & .\scripts\python.ps1 ..\scripts\check_python_test_inventory.py
+          exit $LASTEXITCODE
+
+      - name: Collect the complete default offline Python suite
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          & .\scripts\python.ps1 -m pytest tests --collect-only -q
+          exit $LASTEXITCODE
+
+      - name: Run the complete default offline Python suite
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          & .\scripts\python.ps1 -m pytest tests
+          exit $LASTEXITCODE
+
+      - name: Run the phase-one Ruff baseline
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          & .\scripts\python.ps1 -m ruff check tests ..\scripts\check_python_test_inventory.py
+          exit $LASTEXITCODE
+
+      - name: Validate Node tests and syntax without starting the bridge
+        if: matrix.python-version == '3.11'
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath (Join-Path $env:PK020_ROOT "server\qq_bridge")
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem -LiteralPath src -Filter *.mjs | ForEach-Object {
+            node --check $_.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Set-Location -LiteralPath $env:PK020_ROOT
+          Get-ChildItem -LiteralPath .\server\static\dashboard -Filter *.js | ForEach-Object {
+            node --check $_.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Windows PowerShell 5.1 AST and documentation gates
+        if: matrix.python-version == '3.11'
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          $failed = 0
+          Get-ChildItem -LiteralPath .\scripts,.\server\scripts -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [void][Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+            if ($errors) { $errors; $failed++ }
+          }
+          if ($failed) { throw "Windows PowerShell 5.1 AST validation failed" }
+          & .\scripts\python.ps1 ..\scripts\check_task_docs.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git -C $env:GITHUB_WORKSPACE diff --check
+
+      - name: PowerShell 7.4 AST gate
+        if: matrix.python-version == '3.11'
+        shell: pwsh
+        run: |
+          Set-Location -LiteralPath $env:PK020_ROOT
+          $failed = 0
+          Get-ChildItem -LiteralPath .\scripts,.\server\scripts -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [void][Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors)
+            if ($errors) { $errors; $failed++ }
+          }
+          if ($failed) { throw "PowerShell 7.4 AST validation failed" }
+
+      - name: Remove temporary drive mapping
+        if: always()
+        shell: powershell
+        run: |
+          $null = subst R: /D 2>&1
+          exit 0
+
+  qq-node-runtime:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24", "26"]
+    env:
+      PIP_NO_CACHE_DIR: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      npm_config_prefer_offline: "false"
+      PROJECT_KEI_NO_PAUSE: "1"
+      PROJECT_KEI_EXPECTED_NODE: ${{ matrix.node-version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          architecture: "x64"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "x64"
+
+      - name: Create a fresh empty npm cache
+        shell: powershell
+        run: |
+          $npmCache = Join-Path $env:RUNNER_TEMP ("pk020-node-runtime-" + [guid]::NewGuid().ToString("N"))
+          New-Item -ItemType Directory -Path $npmCache | Out-Null
+          if ((Get-ChildItem -LiteralPath $npmCache -Force | Measure-Object).Count -ne 0) {
+            throw "fresh npm cache is not empty"
+          }
+          "npm_config_cache=$npmCache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify the declared Node x64 runtime
+        shell: powershell
+        run: |
+          node -e "if (process.versions.node.split('.')[0] !== process.env.PROJECT_KEI_EXPECTED_NODE || process.arch !== 'x64') process.exit(1)"
+          exit $LASTEXITCODE
+
+      - name: Create a filtered isolated copy for the QQ runtime
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:GITHUB_WORKSPACE
+          python -B .\server\tests\test_windows_ci_copy.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $unicodePath = -join ([char[]](0x4E2D, 0x6587, 0x8DEF, 0x5F84))
+          $target = Join-Path $env:RUNNER_TEMP ("Project Kei Node " + $env:PROJECT_KEI_EXPECTED_NODE + " " + $unicodePath)
+          python -B .\scripts\windows_ci_copy.py --source $env:GITHUB_WORKSPACE --target $target
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          subst S: $target
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          'PK020_NODE_ROOT=S:\' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install the locked QQ profile through the public entry
+        shell: powershell
+        run: |
+          Set-Location -LiteralPath $env:PK020_NODE_ROOT
+          .\setup.bat --profile qq
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\doctor.bat --profile qq
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Set-Location -LiteralPath (Join-Path $env:PK020_NODE_ROOT "server\qq_bridge")
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem -LiteralPath src -Filter *.mjs | ForEach-Object {
+            node --check $_.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Remove the QQ runtime drive mapping
+        if: always()
+        shell: powershell
+        run: |
+          $null = subst S: /D 2>&1
+          exit 0

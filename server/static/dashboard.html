@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Project Kei 控制台</title>
+  <script type="module" src="/dashboard/static/theme.js?v=pk100-20260808-controls1"></script>
+  <link rel="stylesheet" href="/dashboard/static/shell.css?v=pk100-20260812-servicecards3">
+</head>
+<body>
+<main>
+  <header class="dashboard-header">
+    <div>
+      <h1>Project Kei 控制台</h1>
+      <p>Core 健康状态、模块生命周期与动态功能面板</p>
+    </div>
+    <div class="dashboard-header-tools">
+      <label class="theme-control" for="dashboard-theme">
+        <span>界面主题</span>
+        <select id="dashboard-theme" aria-label="选择控制台界面主题">
+          <option value="cloud">云朵白</option>
+          <option value="sakura">樱花粉</option>
+          <option value="moon">月夜蓝</option>
+        </select>
+      </label>
+      <div class="actions">
+        <button class="secondary" id="refresh" type="button">刷新 Core 与模块状态</button>
+        <button class="secondary" id="restart-project-kei" type="button" disabled
+                aria-describedby="restart-project-kei-status">重启 Project Kei 服务</button>
+      </div>
+      <span id="restart-project-kei-status" class="header-control-status" role="status" aria-live="polite">
+        正在检查受控重启能力…
+      </span>
+    </div>
+  </header>
+
+  <dialog id="restart-project-kei-confirmation" class="module-management-dialog"
+          aria-labelledby="restart-project-kei-confirmation-heading"
+          aria-describedby="restart-project-kei-confirmation-copy">
+    <strong id="restart-project-kei-confirmation-heading">确认重启 Project Kei Core？</strong>
+    <p id="restart-project-kei-confirmation-copy" class="hint">
+      重启期间控制台会短暂断开并自动尝试重连。此操作不会运行任意命令，也不会由页面直接结束进程。
+    </p>
+    <div class="module-management-actions">
+      <button id="confirm-restart-project-kei" type="button">确认重启</button>
+      <button id="cancel-restart-project-kei" class="secondary" type="button">取消</button>
+    </div>
+  </dialog>
+
+  <noscript>
+    <p class="noscript-note">
+      JavaScript 未启用：仍可阅读 Core 外壳与模块管理说明，但状态刷新、主题保存和动态模块面板不可用。
+    </p>
+  </noscript>
+
+  <section class="section core-status-summary" data-panel-id="configuration-readiness" aria-labelledby="core-status-heading">
+    <h2 id="core-status-heading">配置就绪情况</h2>
+    <div class="banner">
+      <span id="overall-dot" class="dot" aria-hidden="true"></span>
+      <div>
+        <strong id="overall" role="status" aria-live="polite">正在检查 Core…</strong>
+        <p id="updated" class="hint"></p>
+      </div>
+    </div>
+    <div class="grid" id="services" aria-label="Core 服务健康摘要"></div>
+    <section class="gpt-sovits-engine-control" aria-labelledby="gpt-sovits-engine-heading">
+      <div>
+        <h3 id="gpt-sovits-engine-heading">GPT-SoVITS 本机引擎</h3>
+        <p id="gpt-sovits-engine-status" class="hint" role="status" aria-live="polite">
+          正在读取本机引擎注册状态…
+        </p>
+      </div>
+      <button id="select-gpt-sovits-engine" class="secondary" type="button" disabled
+              aria-describedby="gpt-sovits-engine-status">选择已有引擎目录</button>
+    </section>
+  </section>
+
+  <section class="section module-management" data-panel-id="feature-center">
+    <h2>模块管理</h2>
+    <p class="hint">
+      从 Project Kei 官方目录安装模块，并管理本机 registry 中的模块。普通页面加载只读取
+      Core 状态、本机官方目录缓存与 registry；不会访问 GitHub，也不会请求未安装业务接口。
+    </p>
+
+    <section class="module-management-group" aria-labelledby="official-modules-heading">
+      <div class="module-management-heading">
+        <div>
+          <h3 id="official-modules-heading">可安装模块</h3>
+          <p class="hint">
+            展示 Project Kei 官方 GitHub Catalog 缓存中的受信模块版本。只有显式刷新目录才允许 Core 联网。
+          </p>
+        </div>
+        <button class="secondary" id="refresh-official-module-catalog" type="button">
+          刷新官方模块目录
+        </button>
+      </div>
+      <div id="official-module-catalog-status" class="detail hint" role="status" aria-live="polite">
+        等待读取本机目录缓存…
+      </div>
+      <div id="official-module-install-confirmation" class="module-confirmation" hidden></div>
+      <div id="official-module-catalog" class="module-catalog"></div>
+    </section>
+
+    <section class="module-management-group" aria-labelledby="installed-modules-heading">
+      <div class="module-management-heading">
+        <div>
+          <h3 id="installed-modules-heading">已安装模块</h3>
+          <p class="hint">
+            展示 PK-010 registry 中的模块；安装后仍需显式启用。没有前端入口的模块会标记为后台能力。
+          </p>
+        </div>
+        <button class="secondary" id="refresh-installed-modules" type="button">刷新本机模块</button>
+      </div>
+      <div id="module-operation-status" class="detail hint" role="status" aria-live="polite"></div>
+      <div id="module-catalog-status" class="detail hint">正在读取本机模块目录…</div>
+      <div id="module-catalog" class="module-catalog"></div>
+    </section>
+
+    <section class="module-management-group" aria-labelledby="core-modules-heading">
+      <div class="module-management-heading">
+        <div>
+          <h3 id="core-modules-heading">Core 固定模块</h3>
+          <p class="hint">
+            只有 catalog、module_manager 与 dashboard 属于 Core 固定模块；它们只读展示且不能停用或卸载。
+          </p>
+        </div>
+      </div>
+      <div id="builtin-module-catalog-status" class="detail hint">正在读取 Core 固定模块状态…</div>
+      <div id="builtin-module-catalog" class="module-catalog"></div>
+    </section>
+
+    <details class="module-offline-install">
+      <summary>高级 / 离线安装</summary>
+      <div class="module-offline-install-body">
+        <p class="hint">
+          选择已经下载到这台电脑的 Project Kei 模块 ZIP。浏览器先在本机计算 SHA-256；
+          只有点击“上传并安装”才会把 ZIP 发送给本机 Core。这里不接受服务器路径、任意下载网址、
+          GitHub Token 或 Cookie。
+        </p>
+        <div class="module-offline-install-fields">
+          <label class="field" for="local-module-id">
+            <span>预期模块 ID（可选手工校验）</span>
+            <input id="local-module-id" type="text" list="local-module-id-suggestions"
+                   pattern="[a-z][a-z0-9_]{0,63}" maxlength="64" autocomplete="off"
+                   spellcheck="false" placeholder="将从 manifest 自动识别">
+          </label>
+          <datalist id="local-module-id-suggestions"></datalist>
+          <label class="field" for="local-module-zip">
+            <span>本地模块 ZIP</span>
+            <input id="local-module-zip" type="file" accept=".zip,application/zip">
+          </label>
+        </div>
+        <div id="local-module-upload-status" class="detail hint" role="status" aria-live="polite">
+          尚未选择 ZIP。选择文件后将从 manifest 自动识别模块 ID；选择文件不会联网或安装。
+        </div>
+        <div class="module-management-actions">
+          <button id="install-local-module-zip" type="button" disabled>上传并安装</button>
+        </div>
+        <dialog id="local-module-id-choice" class="module-management-dialog"
+                aria-labelledby="local-module-id-choice-heading"
+                aria-describedby="local-module-id-choice-copy">
+          <strong id="local-module-id-choice-heading">新 ZIP 如何处理手工模块 ID？</strong>
+          <p id="local-module-id-choice-copy" class="hint">
+            当前预期模块 ID 是你手工填写的。选择新包时可以保留它作为 Core 的额外校验，
+            或清除后从新包根目录的 manifest.json 自动识别；文件名不会用作模块身份。
+          </p>
+          <div class="module-management-actions">
+            <button type="button" data-local-module-id-choice="keep">保留手工 ID</button>
+            <button type="button" data-local-module-id-choice="manifest">使用新包自动识别</button>
+            <button type="button" class="secondary" data-local-module-id-choice="cancel">取消换包</button>
+          </div>
+        </dialog>
+      </div>
+    </details>
+  </section>
+
+  <section class="dynamic-modules-region" aria-labelledby="dynamic-modules-heading">
+    <div class="dynamic-modules-heading">
+      <h2 id="dynamic-modules-heading">已启用模块面板</h2>
+      <p class="hint">
+        加载 registry 中已启用模块，以及等待本机配置的 sidecar 受信面板；单个模块失败不会影响其他模块。
+      </p>
+    </div>
+    <div id="dashboard-module-mounts"></div>
+  </section>
+
+  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+</main>
+<script type="module" src="/dashboard/static/app.js?v=pk100-20260812-servicecards3"></script>
+</body>
+</html>

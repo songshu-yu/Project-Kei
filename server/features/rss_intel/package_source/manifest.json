@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "rss_intel",
+  "name": "RSS/Atom 情报来源",
+  "version": "1.0.0",
+  "type": "in_process",
+  "required": false,
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "entrypoint": "backend.register",
+  "dependencies": [
+    "intel_sources"
+  ],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "api_namespaces": [],
+  "legacy_endpoints": [],
+  "dashboard_entrypoint": "dashboard/index.js",
+  "data_namespace": "rss_intel",
+  "permissions": [],
+  "requires_restart": true
+}

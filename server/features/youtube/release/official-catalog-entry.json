@@ -1,0 +1,20 @@
+{
+  "asset_name": "youtube-1.0.1.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [
+    "intel_sources"
+  ],
+  "manifest_sha256": "6d4bb4691991732b1c12c5e1bedfaba1d2521e546c446b51c36806a28f57ec30",
+  "module_id": "youtube",
+  "name": "YouTube 频道采集",
+  "optional_dependencies": [],
+  "package_sha256": "692dd56d29904a0d7d9c5dc1e20ed3363c18aea45367170ef4f13ddcba38f77a",
+  "package_size": 22217,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/youtube-1.0.1.zip",
+  "permissions": [],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.0.1"
+}

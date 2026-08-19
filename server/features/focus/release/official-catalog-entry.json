@@ -1,0 +1,20 @@
+{
+  "asset_name": "focus-1.1.1.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [],
+  "manifest_sha256": "4a0348d64062bd4965f797b645555d67f33b7696ef563b584431475f8b0ffea4",
+  "module_id": "focus",
+  "name": "专注计时",
+  "optional_dependencies": [],
+  "package_sha256": "4a455bbd73bad33b97f37ac15e8b7f98170decc69f48c314dc3930f86d9f4e52",
+  "package_size": 34284,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/focus-1.1.1.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.1.1"
+}

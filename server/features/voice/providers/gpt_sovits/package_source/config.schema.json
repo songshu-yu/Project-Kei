@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GPT-SoVITS Engine Provider 本机配置",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "engine_id": {
+      "type": "string",
+      "const": "gpt-sovits-v2pro-nvidia50",
+      "default": "gpt-sovits-v2pro-nvidia50",
+      "description": "Project Kei 固定的外部引擎身份。"
+    },
+    "api_style": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "api_py",
+        "legacy_v2"
+      ],
+      "default": "auto",
+      "description": "本机登记可选的 9880 API 风格；实际值只保存在忽略的本机登记中。"
+    },
+    "endpoint": {
+      "type": "string",
+      "const": "http://127.0.0.1:9880",
+      "readOnly": true,
+      "description": "固定 loopback 服务地址，不能由模块包改为任意 URL。"
+    },
+    "engine_installation": {
+      "type": "string",
+      "enum": [
+        "not_bundled",
+        "registered_existing",
+        "installed_verified"
+      ],
+      "default": "not_bundled",
+      "readOnly": true,
+      "description": "安装 Provider 模块不等于安装外部引擎；实际路径不进入本 Schema。"
+    }
+  }
+}

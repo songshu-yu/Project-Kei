@@ -1,0 +1,20 @@
+{
+  "asset_name": "intel-sources-1.1.6.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [],
+  "manifest_sha256": "4b4dcb6c503c9fa21720e9ec9c4fa64703d50a3b5c19888822bddb09c821cfcb",
+  "module_id": "intel_sources",
+  "name": "情报来源管理",
+  "optional_dependencies": [],
+  "package_sha256": "db96595b58347959ca3506453700373362c6e237a5da6c5edda09eb649f28bda",
+  "package_size": 41312,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.08/intel-sources-1.1.6.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.08",
+  "requires_restart": true,
+  "version": "1.1.6"
+}

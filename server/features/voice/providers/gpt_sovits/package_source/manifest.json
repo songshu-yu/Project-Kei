@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "gpt_sovits_engine_provider",
+  "name": "GPT-SoVITS Engine Provider",
+  "version": "1.0.2",
+  "type": "sidecar",
+  "required": false,
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "dependencies": [
+    "voice"
+  ],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "api_namespaces": [
+    "/api/v1/gpt-sovits-engine"
+  ],
+  "legacy_endpoints": [],
+  "dashboard_entrypoint": "dashboard/index.js",
+  "data_namespace": "gpt_sovits_engine_provider",
+  "config_schema": "config.schema.json",
+  "permissions": [
+    "local_state"
+  ],
+  "requires_restart": false,
+  "sidecar": {
+    "adapter": "gpt_sovits_provider",
+    "healthcheck_timeout_seconds": 30
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "asset_name": "fitness-1.0.3.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [],
+  "manifest_sha256": "2e742cb2734fed67a91b9fafe2baed5026f15ffc77662f7a88917d43fd054868",
+  "module_id": "fitness",
+  "name": "健身打卡",
+  "optional_dependencies": [],
+  "package_sha256": "603dd45be66ab1e88f4d80ccaba99529abf4c9dbcf4520b9e781dff4895daad5",
+  "package_size": 34369,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.08/fitness-1.0.3.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.08",
+  "requires_restart": true,
+  "version": "1.0.3"
+}

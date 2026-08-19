@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "module_id": "qq_bridge",
+  "name": "QQ Bridge",
+  "version": "0.1.24",
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "release_tag": "modules-2026.08.12",
+  "asset_name": "qq_bridge-0.1.24.zip",
+  "dependencies": [],
+  "optional_dependencies": [
+    "calendar",
+    "conversation",
+    "daily_briefing",
+    "demon_slayer",
+    "fitness",
+    "focus",
+    "voice"
+  ],
+  "runtime_requirements": [
+    {
+      "id": "node",
+      "supported_major_versions": [20, 22, 24, 26],
+      "architecture": "x64"
+    }
+  ],
+  "conflicts": [],
+  "permissions": [
+    "local_state"
+  ],
+  "data_policy": "preserve_on_uninstall",
+  "requires_restart": false
+}

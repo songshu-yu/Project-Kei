@@ -1,0 +1,5 @@
+# Development and test tooling. The dev profile installs Core plus this layer.
+pytest==8.3.3
+pytest-asyncio==0.24.0
+ruff==0.7.1
+pip-tools==7.4.1

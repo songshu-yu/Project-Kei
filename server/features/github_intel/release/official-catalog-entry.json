@@ -1,0 +1,20 @@
+{
+  "asset_name": "github-intel-1.0.0.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [
+    "intel_sources"
+  ],
+  "manifest_sha256": "8f071d76bdec69424f5d9affa77d60caa3c768cf4403beae385c1d194a52caea",
+  "module_id": "github_intel",
+  "name": "GitHub 情报来源",
+  "optional_dependencies": [],
+  "package_sha256": "24f3934dfef88101e9519b0aa452d4589b889f40dd79c98758b353557ee8737e",
+  "package_size": 28131,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/github-intel-1.0.0.zip",
+  "permissions": [],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.0.0"
+}

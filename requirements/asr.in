@@ -1,0 +1,7 @@
+# Optional public ASR dependencies only. Core is installed separately.
+# Engines, models, Voice Packs, CUDA packages, and local wheels do not belong here.
+faster-whisper==1.1.1
+huggingface-hub==0.25.2
+tokenizers==0.20.3
+# ctranslate2 4.6.0 imports pkg_resources at runtime.
+setuptools==75.2.0

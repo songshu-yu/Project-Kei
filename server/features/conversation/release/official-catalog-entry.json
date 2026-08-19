@@ -1,0 +1,20 @@
+{
+  "asset_name": "conversation-1.0.2.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [],
+  "manifest_sha256": "106449d0cf74c059d9a928be4d2b8c3c9995c6a30f85c525167a27200a232683",
+  "module_id": "conversation",
+  "name": "LLM 对话与模型方案",
+  "optional_dependencies": [],
+  "package_sha256": "a739526e14996b2615eb7c3cbe1ba13bdb23aae712b916c087320a62ce8d58bf",
+  "package_size": 71329,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/conversation-1.0.2.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.0.2"
+}

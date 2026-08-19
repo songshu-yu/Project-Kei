@@ -1,0 +1,22 @@
+{
+  "asset_name": "voice_pack_registry-1.0.0.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [
+    "voice"
+  ],
+  "manifest_sha256": "d2b36c58eeb1d567631c947e1912c51eae3b13eed69b35adebd917be9f741cef",
+  "module_id": "voice_pack_registry",
+  "name": "Voice Pack 管理",
+  "optional_dependencies": [],
+  "package_sha256": "cedc0291488fee9daee8d387047bd0d746255ec6b663dd35a727fcaa8c41b7df",
+  "package_size": 64000,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/voice_pack_registry-1.0.0.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.0.0"
+}

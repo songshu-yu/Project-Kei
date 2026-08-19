@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-kei.local/schemas/official-module-release-fragment-v1.json",
+  "title": "Project Kei official module release fragment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "module_id", "name", "version", "core_compatibility",
+    "release_tag", "asset_name", "dependencies", "optional_dependencies",
+    "conflicts", "permissions", "data_policy", "requires_restart"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 120},
+    "version": {"type": "string", "minLength": 1, "maxLength": 80},
+    "core_compatibility": {"type": "string", "minLength": 1, "maxLength": 160},
+    "release_tag": {"type": "string", "pattern": "^[0-9A-Za-z._-]{1,120}$"},
+    "asset_name": {"type": "string", "pattern": "^[0-9A-Za-z._-]{1,160}\\.zip$"},
+    "dependencies": {"$ref": "official-catalog.schema.json#/$defs/moduleIds"},
+    "optional_dependencies": {"$ref": "official-catalog.schema.json#/$defs/moduleIds"},
+    "runtime_requirements": {"$ref": "official-catalog.schema.json#/$defs/runtimeRequirements"},
+    "conflicts": {"$ref": "official-catalog.schema.json#/$defs/moduleIds"},
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["local_state", "network_download"]}
+    },
+    "data_policy": {"const": "preserve_on_uninstall"},
+    "requires_restart": {"type": "boolean"}
+  }
+}

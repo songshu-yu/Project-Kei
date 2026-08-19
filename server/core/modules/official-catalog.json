@@ -1,0 +1,440 @@
+{
+  "generated_at": "2026-08-12T00:00:00Z",
+  "modules": [
+    {
+      "asset_name": "affection_memory-1.0.4.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "conversation"
+      ],
+      "manifest_sha256": "6e45f315af8a013dc5797c7b77f1ca0a1a1d6b334c941c1ab978243af5deb751",
+      "module_id": "affection_memory",
+      "name": "好感度与长期记忆",
+      "optional_dependencies": [],
+      "package_sha256": "7e74beb9a07509829edf5b6e3504a4e930ae546c0f6ea3c1a79a12486a279d21",
+      "package_size": 74871,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/affection_memory-1.0.4.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.4"
+    },
+    {
+      "asset_name": "bilibili-1.0.2.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "intel_sources"
+      ],
+      "manifest_sha256": "c737126beab65c3785cbfec6aa4b23bd67b59e1fbe8e4ca753361d9282a93b90",
+      "module_id": "bilibili",
+      "name": "B站资料与动态采集",
+      "optional_dependencies": [],
+      "package_sha256": "623748d83a5ef0803f1bf9d4f8ff5557d3e7f4f8f9e3de26c75d4c5cc7a59349",
+      "package_size": 92316,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/bilibili-1.0.2.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.2"
+    },
+    {
+      "asset_name": "calendar-1.0.0.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [],
+      "manifest_sha256": "8f743dc960022c4a0febe475149d803184c9e715ffd4fa708a30d2c9ee278653",
+      "module_id": "calendar",
+      "name": "日历备忘与修炼记录",
+      "optional_dependencies": [],
+      "package_sha256": "0d1df169d788574989b616f26d080b0516b449da340c675ae85e9aaed1af24a8",
+      "package_size": 38764,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/calendar-1.0.0.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.0"
+    },
+    {
+      "asset_name": "conversation-1.0.2.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [],
+      "manifest_sha256": "106449d0cf74c059d9a928be4d2b8c3c9995c6a30f85c525167a27200a232683",
+      "module_id": "conversation",
+      "name": "LLM 对话与模型方案",
+      "optional_dependencies": [],
+      "package_sha256": "a739526e14996b2615eb7c3cbe1ba13bdb23aae712b916c087320a62ce8d58bf",
+      "package_size": 71329,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/conversation-1.0.2.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.2"
+    },
+    {
+      "asset_name": "daily-briefing-1.0.2.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [],
+      "manifest_sha256": "d567a49c2a5fcb7f5d185a2c7ead7d3b7abb77dd6abc9673e90f8d668694114c",
+      "module_id": "daily_briefing",
+      "name": "每日情报",
+      "optional_dependencies": [
+        "intel_sources",
+        "x_monitor",
+        "bilibili",
+        "youtube",
+        "github_intel",
+        "papers",
+        "rss_intel",
+        "conversation",
+        "voice"
+      ],
+      "package_sha256": "02d97afa3081921006128d3f511c24071343bf284162490d3fb791ee181c0de7",
+      "package_size": 126244,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/daily-briefing-1.0.2.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.2"
+    },
+    {
+      "asset_name": "demon_slayer-1.0.1.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [],
+      "manifest_sha256": "c8968c5ac09c296a6e44869be93736a3942c453607992ae9437d7b3047202f63",
+      "module_id": "demon_slayer",
+      "name": "斩妖除魔",
+      "optional_dependencies": [
+        "conversation"
+      ],
+      "package_sha256": "880d75219bde9c1776fdeb5980cfae610e70719163fe7bb337b5d70ff93c7e00",
+      "package_size": 105156,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/demon_slayer-1.0.1.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.1"
+    },
+    {
+      "asset_name": "fitness-1.0.3.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [],
+      "manifest_sha256": "2e742cb2734fed67a91b9fafe2baed5026f15ffc77662f7a88917d43fd054868",
+      "module_id": "fitness",
+      "name": "健身打卡",
+      "optional_dependencies": [],
+      "package_sha256": "603dd45be66ab1e88f4d80ccaba99529abf4c9dbcf4520b9e781dff4895daad5",
+      "package_size": 34369,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.08/fitness-1.0.3.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.08",
+      "requires_restart": true,
+      "version": "1.0.3"
+    },
+    {
+      "asset_name": "focus-1.1.1.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [],
+      "manifest_sha256": "4a0348d64062bd4965f797b645555d67f33b7696ef563b584431475f8b0ffea4",
+      "module_id": "focus",
+      "name": "专注计时",
+      "optional_dependencies": [],
+      "package_sha256": "4a455bbd73bad33b97f37ac15e8b7f98170decc69f48c314dc3930f86d9f4e52",
+      "package_size": 34284,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/focus-1.1.1.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.1.1"
+    },
+    {
+      "asset_name": "github-intel-1.0.0.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "intel_sources"
+      ],
+      "manifest_sha256": "8f071d76bdec69424f5d9affa77d60caa3c768cf4403beae385c1d194a52caea",
+      "module_id": "github_intel",
+      "name": "GitHub 情报来源",
+      "optional_dependencies": [],
+      "package_sha256": "24f3934dfef88101e9519b0aa452d4589b889f40dd79c98758b353557ee8737e",
+      "package_size": 28131,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/github-intel-1.0.0.zip",
+      "permissions": [],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.0"
+    },
+    {
+      "asset_name": "gpt_sovits_engine_provider-1.0.2.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "voice"
+      ],
+      "manifest_sha256": "1e1eafae166ac03adf1dfc06d66ccbfb94ea72c5baa00fb578630ca4baf0584e",
+      "module_id": "gpt_sovits_engine_provider",
+      "name": "GPT-SoVITS Engine Provider",
+      "optional_dependencies": [],
+      "package_sha256": "3971228df9f098582076dc551d5c22d4be610a059102878f35e3465e33391c6e",
+      "package_size": 98648,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.12/gpt_sovits_engine_provider-1.0.2.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.12",
+      "requires_restart": false,
+      "version": "1.0.2"
+    },
+    {
+      "asset_name": "intel-sources-1.1.6.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [],
+      "manifest_sha256": "4b4dcb6c503c9fa21720e9ec9c4fa64703d50a3b5c19888822bddb09c821cfcb",
+      "module_id": "intel_sources",
+      "name": "情报来源管理",
+      "optional_dependencies": [],
+      "package_sha256": "db96595b58347959ca3506453700373362c6e237a5da6c5edda09eb649f28bda",
+      "package_size": 41312,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.08/intel-sources-1.1.6.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.08",
+      "requires_restart": true,
+      "version": "1.1.6"
+    },
+    {
+      "asset_name": "papers-1.0.0.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "intel_sources"
+      ],
+      "manifest_sha256": "ac3cac4aa5585f2217e309b3bd2c0ee05ec34114c54364c6d99a2f50f4b47917",
+      "module_id": "papers",
+      "name": "论文来源与今日论文",
+      "optional_dependencies": [],
+      "package_sha256": "a8039450988d72058a99bbc720144b87928b50ac91802d0818b819a7c3651d9a",
+      "package_size": 113553,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/papers-1.0.0.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.0"
+    },
+    {
+      "asset_name": "qq_bridge-0.1.24.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [],
+      "manifest_sha256": "7c6768a2128ceedb1128969d629d12e55055c3fe54b6cb629d9b8c03835f63ed",
+      "module_id": "qq_bridge",
+      "name": "QQ Bridge",
+      "optional_dependencies": [
+        "calendar",
+        "conversation",
+        "daily_briefing",
+        "demon_slayer",
+        "fitness",
+        "focus",
+        "voice"
+      ],
+      "package_sha256": "52767f2d81f92cf0d474ea5e0f9f7f4f4985caffb687ffa6c759e24114a936a8",
+      "package_size": 165308,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.12/qq_bridge-0.1.24.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.12",
+      "requires_restart": false,
+      "runtime_requirements": [
+        {
+          "architecture": "x64",
+          "id": "node",
+          "supported_major_versions": [
+            20,
+            22,
+            24,
+            26
+          ]
+        }
+      ],
+      "version": "0.1.24"
+    },
+    {
+      "asset_name": "rss_intel-1.0.0.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "intel_sources"
+      ],
+      "manifest_sha256": "0928d9decb6c4797994a776f96663a0a079c0a2a80b50108f2fa9598ced4a466",
+      "module_id": "rss_intel",
+      "name": "RSS/Atom 情报来源",
+      "optional_dependencies": [],
+      "package_sha256": "9af0bb51fe50b2a709386ed656aed95eb7fbe6cc8dadcb3f3dc36b55d46c6307",
+      "package_size": 36153,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/rss_intel-1.0.0.zip",
+      "permissions": [],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.0"
+    },
+    {
+      "asset_name": "voice-1.0.9.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "conversation"
+      ],
+      "manifest_sha256": "60580f7480df88101f2125af31f3d3d81f0fc9d44d4260580edb3e9f50ee4529",
+      "module_id": "voice",
+      "name": "语音公共契约与编排",
+      "optional_dependencies": [
+        "calendar"
+      ],
+      "package_sha256": "bfdce593738d4bcc92adc08ae462d19631ee53325bb1916c5c46c97364690abb",
+      "package_size": 109873,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.12/voice-1.0.9.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.12",
+      "requires_restart": true,
+      "version": "1.0.9"
+    },
+    {
+      "asset_name": "voice_pack_distribution-1.0.1.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "voice_pack_registry"
+      ],
+      "manifest_sha256": "e0dc2596259fb6dbcc309385282854e0aaa64d7ff8bcd644e3106b75d5f969a5",
+      "module_id": "voice_pack_distribution",
+      "name": "Voice Pack 分发",
+      "optional_dependencies": [],
+      "package_sha256": "69c35f1610169271a06f3434fe16c6b8ac1253bbe1ca2251aa3916918b255ecf",
+      "package_size": 62247,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/voice_pack_distribution-1.0.1.zip",
+      "permissions": [
+        "local_state",
+        "network_download"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.1"
+    },
+    {
+      "asset_name": "voice_pack_registry-1.0.0.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "voice"
+      ],
+      "manifest_sha256": "d2b36c58eeb1d567631c947e1912c51eae3b13eed69b35adebd917be9f741cef",
+      "module_id": "voice_pack_registry",
+      "name": "Voice Pack 管理",
+      "optional_dependencies": [],
+      "package_sha256": "cedc0291488fee9daee8d387047bd0d746255ec6b663dd35a727fcaa8c41b7df",
+      "package_size": 64000,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/voice_pack_registry-1.0.0.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.0"
+    },
+    {
+      "asset_name": "x_monitor-1.1.0.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "intel_sources"
+      ],
+      "manifest_sha256": "aa028f6bdf1ac611f211da0c2ce5a6566cf113ac51f908acea8708c299fcd3d5",
+      "module_id": "x_monitor",
+      "name": "X/Nitter 用户资料与言论采集",
+      "optional_dependencies": [],
+      "package_sha256": "3ab7d1b0425883e7d0e8ec81ad2323d9cacbfb9af655413307611ceaa7052669",
+      "package_size": 110315,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/x_monitor-1.1.0.zip",
+      "permissions": [
+        "local_state"
+      ],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.1.0"
+    },
+    {
+      "asset_name": "youtube-1.0.1.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [
+        "intel_sources"
+      ],
+      "manifest_sha256": "6d4bb4691991732b1c12c5e1bedfaba1d2521e546c446b51c36806a28f57ec30",
+      "module_id": "youtube",
+      "name": "YouTube 频道采集",
+      "optional_dependencies": [],
+      "package_sha256": "692dd56d29904a0d7d9c5dc1e20ed3363c18aea45367170ef4f13ddcba38f77a",
+      "package_size": 22217,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/youtube-1.0.1.zip",
+      "permissions": [],
+      "release_tag": "modules-2026.08.02",
+      "requires_restart": true,
+      "version": "1.0.1"
+    }
+  ],
+  "owner": "songshu-yu",
+  "publisher": "Project Kei",
+  "repository": "Project-Kei-Modules",
+  "schema_version": 1
+}

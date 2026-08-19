@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "example-voice",
+  "name": "Example Voice",
+  "version": "1.0.0",
+  "engine": {
+    "provider": "gpt-sovits",
+    "protocol_version": "pk210-tts-v1"
+  },
+  "supported_languages": ["zh", "ja"],
+  "gpt_checkpoint": {
+    "path": "assets/example.ckpt",
+    "integrity": {
+      "mode": "sha256",
+      "size_bytes": 4,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "sovits_checkpoint": {
+    "path": "assets/example.pth",
+    "integrity": {
+      "mode": "sha256",
+      "size_bytes": 4,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "reference_audio": {
+    "path": "assets/reference.wav",
+    "integrity": {
+      "mode": "sha256",
+      "size_bytes": 4,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "reference_text": "脱敏示例参考文本。",
+  "reference_language": "zh",
+  "default_text_language": "zh",
+  "generation_parameters": {
+    "top_k": 15,
+    "top_p": 1.0,
+    "temperature": 1.0,
+    "speed_factor": 1.0,
+    "text_split_method": "cut5"
+  },
+  "metadata": {
+    "source": "example only",
+    "author": "Project Kei",
+    "license": "No real asset license is implied",
+    "redistribution": "unknown"
+  }
+}

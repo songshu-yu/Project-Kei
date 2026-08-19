@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-kei.invalid/schema/voice-pack-catalog-v1.json",
+  "title": "Project Kei trusted Voice Pack release entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "catalog_schema_version", "pack_id", "version", "display_name", "engine_id",
+    "language", "core_compatibility", "voice_pack_schema_version",
+    "engine_protocol", "engine_compatibility", "download_url",
+    "allowed_redirect_hosts", "size_bytes", "sha256", "archive_root",
+    "max_files", "max_file_bytes", "max_uncompressed_bytes",
+    "max_compression_ratio", "license_url", "notice_url", "release_tag",
+    "revision", "published_at", "recommend_select"
+  ],
+  "properties": {
+    "catalog_schema_version": {"const": 1},
+    "pack_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"},
+    "display_name": {"type": "string", "minLength": 1},
+    "engine_id": {"type": "string", "minLength": 1},
+    "language": {"type": "string", "minLength": 1},
+    "core_compatibility": {"type": "string", "minLength": 1},
+    "voice_pack_schema_version": {"const": 1},
+    "engine_protocol": {"type": "string", "minLength": 1},
+    "engine_compatibility": {"type": "string", "minLength": 1},
+    "download_url": {"type": "string", "pattern": "^https://"},
+    "allowed_redirect_hosts": {
+      "type": "array", "minItems": 1, "maxItems": 8,
+      "uniqueItems": true, "items": {"type": "string", "minLength": 1}
+    },
+    "size_bytes": {"type": "integer", "minimum": 1},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "archive_root": {"type": "string", "minLength": 1},
+    "max_files": {"type": "integer", "minimum": 1, "maximum": 4096},
+    "max_file_bytes": {"type": "integer", "minimum": 1},
+    "max_uncompressed_bytes": {"type": "integer", "minimum": 1},
+    "max_compression_ratio": {"type": "number", "minimum": 1, "maximum": 1000},
+    "license_url": {"type": "string", "pattern": "^https://"},
+    "notice_url": {"type": "string", "pattern": "^https://"},
+    "release_tag": {"type": "string", "minLength": 1},
+    "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "published_at": {"type": "string", "minLength": 1},
+    "recommend_select": {"type": "boolean"}
+  }
+}

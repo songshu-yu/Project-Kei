@@ -1,0 +1,16 @@
+# Project Kei development/test Windows lock
+# Install after core-win.lock.txt. Voice and QQ are intentionally excluded.
+# Python: >=3.10,<3.14; platform: Windows x64
+build==1.2.2.post1
+exceptiongroup==1.2.2; python_version < "3.11"
+iniconfig==2.0.0
+packaging==24.1
+pip-tools==7.4.1
+pluggy==1.5.0
+pyproject-hooks==1.2.0
+pytest==8.3.3
+pytest-asyncio==0.24.0
+ruff==0.7.1
+setuptools==75.2.0
+tomli==2.0.2; python_version < "3.11"
+wheel==0.44.0

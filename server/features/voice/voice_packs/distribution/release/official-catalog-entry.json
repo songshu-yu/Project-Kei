@@ -1,0 +1,23 @@
+{
+  "asset_name": "voice_pack_distribution-1.0.1.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [
+    "voice_pack_registry"
+  ],
+  "manifest_sha256": "e0dc2596259fb6dbcc309385282854e0aaa64d7ff8bcd644e3106b75d5f969a5",
+  "module_id": "voice_pack_distribution",
+  "name": "Voice Pack 分发",
+  "optional_dependencies": [],
+  "package_sha256": "69c35f1610169271a06f3434fe16c6b8ac1253bbe1ca2251aa3916918b255ecf",
+  "package_size": 62247,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/voice_pack_distribution-1.0.1.zip",
+  "permissions": [
+    "local_state",
+    "network_download"
+  ],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.0.1"
+}

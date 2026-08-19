@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "module_id": "daily_briefing",
+  "name": "每日情报",
+  "version": "1.0.2",
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "release_tag": "modules-2026.08.02",
+  "asset_name": "daily-briefing-1.0.2.zip",
+  "dependencies": [],
+  "optional_dependencies": [
+    "intel_sources",
+    "x_monitor",
+    "bilibili",
+    "youtube",
+    "github_intel",
+    "papers",
+    "rss_intel",
+    "conversation",
+    "voice"
+  ],
+  "conflicts": [],
+  "permissions": [
+    "local_state"
+  ],
+  "data_policy": "preserve_on_uninstall",
+  "requires_restart": true
+}

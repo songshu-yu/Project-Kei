@@ -1,0 +1,10 @@
+# Project Kei Core direct dependencies.
+# Regenerate the Windows lock with the command documented in
+# docs/architecture/windows-install.md. Do not add local paths or private indexes.
+fastapi==0.115.4
+httpx==0.27.2
+pydantic==2.9.2
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+tzdata==2024.2
+bilibili-api-python==17.4.2

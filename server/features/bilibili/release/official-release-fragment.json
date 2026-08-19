@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "module_id": "bilibili",
+  "name": "B站资料与动态采集",
+  "version": "1.0.2",
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "release_tag": "modules-2026.08.02",
+  "asset_name": "bilibili-1.0.2.zip",
+  "dependencies": [
+    "intel_sources"
+  ],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "permissions": [
+    "local_state"
+  ],
+  "data_policy": "preserve_on_uninstall",
+  "requires_restart": true
+}

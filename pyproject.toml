@@ -1,0 +1,37 @@
+[tool.pytest.ini_options]
+minversion = "7.4"
+testpaths = ["server/tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*", "check_*"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = [
+  "-ra",
+  "--strict-config",
+  "--strict-markers",
+  "-p",
+  "no:cacheprovider",
+]
+markers = [
+  "controlled_integration: requires explicitly started local services, hardware, models, or user-provided files",
+  "manual_diagnostic: may read local configuration or contact real external services and is never part of the default suite",
+]
+filterwarnings = [
+  "error::pytest.PytestUnhandledThreadExceptionWarning",
+  "error::pytest.PytestUnraisableExceptionWarning",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = [
+  ".venv",
+  "server/.venv-asr",
+  "node_modules",
+  "vendor",
+]
+
+[tool.ruff.lint]
+# PK-030 phase 1: syntax, invalid control flow, and undefined-name failures.
+# Formatting and broader style rules are intentionally deferred to later tightening.
+select = ["E9", "F63", "F7", "F82"]

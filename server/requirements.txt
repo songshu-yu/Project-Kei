@@ -1,0 +1,2 @@
+# Compatibility entry. The authoritative Core lock is maintained at repository root.
+-r ../requirements/core-win.lock.txt

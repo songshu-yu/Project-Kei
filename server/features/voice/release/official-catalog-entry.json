@@ -1,0 +1,24 @@
+{
+  "asset_name": "voice-1.0.9.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [
+    "conversation"
+  ],
+  "manifest_sha256": "60580f7480df88101f2125af31f3d3d81f0fc9d44d4260580edb3e9f50ee4529",
+  "module_id": "voice",
+  "name": "语音公共契约与编排",
+  "optional_dependencies": [
+    "calendar"
+  ],
+  "package_sha256": "bfdce593738d4bcc92adc08ae462d19631ee53325bb1916c5c46c97364690abb",
+  "package_size": 109873,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.12/voice-1.0.9.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.12",
+  "requires_restart": true,
+  "version": "1.0.9"
+}

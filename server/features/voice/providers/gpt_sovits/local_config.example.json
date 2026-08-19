@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "engine_id": "gpt-sovits-v2pro-nvidia50",
+  "release_identity": "20250606v2pro@d7c2210da8c013e81a94bfc7b811a477c99fd506",
+  "distribution_revision": "fb387b7a65a5441e5e3985f4ab9b721a9d455363",
+  "install_root": "<absolute external installation path>",
+  "api_style": "auto",
+  "install_status": "registered_existing",
+  "integrity_status": "unverified_existing_install",
+  "registered_at": "<local timestamp>"
+}

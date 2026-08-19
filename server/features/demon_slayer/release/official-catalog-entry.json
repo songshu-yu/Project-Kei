@@ -1,0 +1,22 @@
+{
+  "asset_name": "demon_slayer-1.0.1.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [],
+  "manifest_sha256": "c8968c5ac09c296a6e44869be93736a3942c453607992ae9437d7b3047202f63",
+  "module_id": "demon_slayer",
+  "name": "斩妖除魔",
+  "optional_dependencies": [
+    "conversation"
+  ],
+  "package_sha256": "880d75219bde9c1776fdeb5980cfae610e70719163fe7bb337b5d70ff93c7e00",
+  "package_size": 105156,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/demon_slayer-1.0.1.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.0.1"
+}

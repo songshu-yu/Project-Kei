@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "module_id": "affection_memory",
+  "name": "好感度与长期记忆",
+  "version": "1.0.4",
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "release_tag": "modules-2026.08.02",
+  "asset_name": "affection_memory-1.0.4.zip",
+  "dependencies": [
+    "conversation"
+  ],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "permissions": [
+    "local_state"
+  ],
+  "data_policy": "preserve_on_uninstall",
+  "requires_restart": true
+}

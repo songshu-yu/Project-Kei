@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "default_offline": [
+    "test_affection_memory_installable.py",
+    "test_affection_memory_module.py",
+    "test_affection_system.py",
+    "test_bilibili_collector.py",
+    "test_bilibili_credentials.py",
+    "test_bilibili_feature.py",
+    "test_bilibili_installable_module.py",
+    "test_calendar_memo.py",
+    "test_calendar_module.py",
+    "test_conversation_consumers.py",
+    "test_conversation_module.py",
+    "test_conversation_package.py",
+    "test_daily_briefing_generation_status.py",
+    "test_daily_briefing_installable.py",
+    "test_daily_briefing_module.py",
+    "test_daily_briefing_summary_cache.py",
+    "test_dashboard_shell.py",
+    "test_demon_checkin_feedback.py",
+    "test_demon_review_kei.py",
+    "test_demon_slayer.py",
+    "test_demon_slayer_dashboard.py",
+    "test_demon_slayer_hierarchy.py",
+    "test_demon_slayer_installable.py",
+    "test_demon_slayer_module.py",
+    "test_demon_slayer_statistics.py",
+    "test_feature_catalog.py",
+    "test_fitness_checkin.py",
+    "test_fitness_module.py",
+    "test_focus_dashboard.py",
+    "test_focus_module.py",
+    "test_focus_timer.py",
+    "test_github_intel_collector.py",
+    "test_github_intel_package.py",
+    "test_gpt_sovits_engine_sessions.py",
+    "test_gpt_sovits_engine_selection_assembly.py",
+    "test_gpt_sovits_provider.py",
+    "test_installable_modules.py",
+    "test_intel_source_config.py",
+    "test_intel_sources_dashboard.py",
+    "test_intel_sources_integration.py",
+    "test_intel_sources_installable.py",
+    "test_intel_sources_registry.py",
+    "test_llm_profile.py",
+    "test_local_access_boundary.py",
+    "test_memory_system.py",
+    "test_module_host_assembly.py",
+    "test_official_module_catalog.py",
+    "test_official_module_release_set.py",
+    "test_papers_collectors.py",
+    "test_papers_dashboard.py",
+    "test_papers_http_runtime.py",
+    "test_papers_installable_module.py",
+    "test_pytest_quality_gate.py",
+    "test_qq_control.py",
+    "test_restart_supervisor.py",
+    "test_rss_intel_collector.py",
+    "test_rss_intel_module.py",
+    "test_text_normalizer.py",
+    "test_voice_calendar_intents.py",
+    "test_voice_demon_intents.py",
+    "test_voice_installable_module.py",
+    "test_voice_module.py",
+    "test_voice_pack_distribution.py",
+    "test_voice_pack_distribution_module.py",
+    "test_voice_pack_origin_guard.py",
+    "test_voice_pack_registry.py",
+    "test_voice_pack_registry_module.py",
+    "test_voice_runtime_control.py",
+    "test_voice_silk_encoder.py",
+    "test_windows_ci_copy.py",
+    "test_windows_install.py",
+    "test_x_fxembed.py",
+    "test_x_monitor.py",
+    "test_x_monitor_dashboard.py",
+    "test_x_monitor_module.py",
+    "test_youtube_collector.py",
+    "test_youtube_feature_package.py"
+  ],
+  "controlled_integration": [
+    {
+      "path": "test_asr_upload.py",
+      "reason": "requires a user-provided audio file and a running ASR service on 8010"
+    },
+    {
+      "path": "test_daily_briefing_voice.py",
+      "reason": "targets a running API and can explicitly trigger collectors, an LLM rewrite, cache writes, and TTS"
+    },
+    {
+      "path": "test_health_full.py",
+      "reason": "probes running API, ASR, and TTS services and can explicitly trigger a paid LLM request"
+    },
+    {
+      "path": "test_mic_voice_chat.py",
+      "reason": "requires microphone hardware, optional audio drivers, running ASR/API/TTS services, and writes generated audio"
+    },
+    {
+      "path": "test_tts_gptsovits.py",
+      "reason": "reads the local Voice Pack registry, requires a running GPT-SoVITS engine, and writes generated audio"
+    },
+    {
+      "path": "test_voice_chat.py",
+      "reason": "requires a user-provided audio file plus running API, ASR, LLM, and TTS services"
+    }
+  ],
+  "manual_diagnostic": [
+    {
+      "path": "test_audio_cleanup.py",
+      "reason": "inspects real generated-output directories and --apply can delete user output"
+    },
+    {
+      "path": "test_intel.py",
+      "reason": "contacts real arXiv, GitHub, Nitter, Bilibili, YouTube, and RSS sources using diagnostic targets"
+    },
+    {
+      "path": "test_llm_debug.py",
+      "reason": "reads server/.env and sends a real potentially paid model request"
+    },
+    {
+      "path": "test_twitter_debug.py",
+      "reason": "reads configured Nitter targets and performs real external network diagnostics"
+    },
+    {
+      "path": "test_weibo_debug.py",
+      "reason": "performs real external RSSHub diagnostics"
+    },
+    {
+      "path": "test_youtube_debug.py",
+      "reason": "reads configured channels and performs real external YouTube feed diagnostics"
+    },
+    {
+      "path": "test_zuo.py",
+      "reason": "performs a real multi-journal and Semantic Scholar paper search"
+    },
+    {
+      "path": "test_zuo_deepseek_summary.py",
+      "reason": "reads local model credentials, performs real paper enrichment, and can send a paid DeepSeek request"
+    }
+  ],
+  "legacy_entrypoints": {
+    "test_affection_system.py": "demo",
+    "test_conversation_consumers.py": "check",
+    "test_daily_briefing_summary_cache.py": "main",
+    "test_demon_review_kei.py": "check",
+    "test_demon_slayer.py": "demo",
+    "test_demon_slayer_hierarchy.py": "main",
+    "test_feature_catalog.py": "main",
+    "test_fitness_checkin.py": "main",
+    "test_memory_system.py": "main",
+    "test_text_normalizer.py": "main",
+    "test_voice_calendar_intents.py": "main",
+    "test_voice_demon_intents.py": "main",
+    "test_voice_silk_encoder.py": "main"
+  }
+}

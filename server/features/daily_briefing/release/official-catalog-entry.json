@@ -1,0 +1,30 @@
+{
+  "asset_name": "daily-briefing-1.0.2.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [],
+  "manifest_sha256": "d567a49c2a5fcb7f5d185a2c7ead7d3b7abb77dd6abc9673e90f8d668694114c",
+  "module_id": "daily_briefing",
+  "name": "每日情报",
+  "optional_dependencies": [
+    "intel_sources",
+    "x_monitor",
+    "bilibili",
+    "youtube",
+    "github_intel",
+    "papers",
+    "rss_intel",
+    "conversation",
+    "voice"
+  ],
+  "package_sha256": "02d97afa3081921006128d3f511c24071343bf284162490d3fb791ee181c0de7",
+  "package_size": 126244,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/daily-briefing-1.0.2.zip",
+  "permissions": [
+    "local_state"
+  ],
+  "release_tag": "modules-2026.08.02",
+  "requires_restart": true,
+  "version": "1.0.2"
+}

@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "llm_api_key": {
+      "type": "string",
+      "x-env-var": "LLM_API_KEY"
+    }
+  },
+  "required": [
+    "llm_api_key"
+  ]
+}

@@ -1,0 +1,98 @@
+# Secrets and local configuration
+.env
+*.env
+README.local.md
+server/.env
+server/*.env
+!*.env.example
+!server/*.env.example
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+cyber_girlfriend/
+server/.venv-asr/
+
+# Generated output and runtime caches
+server/output/
+server/intel_history/
+server/data/cache/
+server/data/briefing_cache/
+server/data/daily_briefing_schedule.json
+server/data/life_support_schedule.json
+server/data/llm_profile.json
+server/data/gpt_sovits_engine.local.json
+server/data/voice_pack_registry.local.json
+server/data/voice_packs/
+server/data/intel_sources.json
+server/data/bilibili_profiles.json
+server/data/bilibili_credentials.local.json
+server/data/x_profiles.json
+server/data/x_daily_posts.json
+server/data/x_daily_replies.json
+server/data/module_registry.json
+server/data/modules/
+server/data/official_module_catalog.json
+server/data/official_module_catalog.last-good.json
+server/data/dashboard_ui/
+server/data/affection_state.json
+server/data/fitness_checkins.json
+server/data/focus_timer.json
+server/data/memories.json
+server/systems/data/calendar_memo.json
+server/systems/data/demon_slayer.json
+server/systems/data/focus_timer.json
+server/runtime/modules/
+server/runtime/voice_packs/
+server/qq_bridge/data/
+server/.pytest_cache/
+
+# Local ASR / ML models and large model weights
+server/models/
+*.ckpt
+*.pth
+*.pt
+*.safetensors
+*.onnx
+*.bin
+
+# Audio and media generated during tests
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.m4a
+
+# Logs
+*.log
+logs/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Node/client dependencies and build outputs
+node_modules/
+dist/
+build/
+.next/
+out/
+
+# Large archives
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
