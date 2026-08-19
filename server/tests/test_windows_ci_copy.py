@@ -246,8 +246,12 @@ class WindowsCiCopyTripwireTests(unittest.TestCase):
             self.assertFalse(stat.S_ISLNK(metadata.st_mode))
             self.assertFalse(getattr(metadata, "st_file_attributes", 0) & 0x400)
             entries.append(_entry(relative_path))
+        policy = CopyPolicy()
+        expected_protected = sum(
+            policy.classify(entry.relative_path) == "protected" for entry in entries
+        )
         plan = build_plan(entries)
-        self.assertGreaterEqual(plan.protected_rejected, 7)
+        self.assertEqual(expected_protected, plan.protected_rejected)
         self.assertGreater(len(plan.allowed), 100)
         allowed = {entry.relative_path.casefold() for entry in plan.allowed}
         self.assertEqual("allowed", CopyPolicy().classify(".gitattributes"))
