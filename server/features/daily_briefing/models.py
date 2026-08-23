@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Dict, List, Mapping, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from core.intel_contracts import (
     COLLECTOR_CONTRACT_VERSION,
@@ -31,6 +31,20 @@ from core.intel_contracts import (
 
 
 BRIEFING_CACHE_SCHEMA_VERSION = 1
+LIFE_FORECAST_PROJECTION_SCHEMA_VERSION = 1
+LIFE_FORECAST_PROJECTION_FIELD_IDS = (
+    "weather_condition",
+    "temperature_range",
+    "apparent_temperature",
+    "precipitation_probability",
+    "wind",
+    "alerts",
+    "clothing",
+    "travel_umbrella",
+    "uv",
+    "air_quality",
+    "fortune",
+)
 
 
 @dataclass
@@ -184,13 +198,45 @@ class BriefingGenerateRequest(BaseModel):
     lookback: int = Field(default=24, ge=1, le=720)
 
 
+class LifeForecastProjectionFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    weather_condition: StrictBool
+    temperature_range: StrictBool
+    apparent_temperature: StrictBool
+    precipitation_probability: StrictBool
+    wind: StrictBool
+    alerts: StrictBool
+    clothing: StrictBool
+    travel_umbrella: StrictBool
+    uv: StrictBool
+    air_quality: StrictBool
+    fortune: StrictBool
+
+class LifeForecastProjectionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: StrictBool
+    fields: LifeForecastProjectionFields
+
+def disabled_life_forecast_projection() -> LifeForecastProjectionUpdate:
+    return LifeForecastProjectionUpdate(
+        enabled=False,
+        fields={key: False for key in LIFE_FORECAST_PROJECTION_FIELD_IDS},
+    )
+
+
 __all__ = [
     "BRIEFING_CACHE_SCHEMA_VERSION",
+    "LIFE_FORECAST_PROJECTION_FIELD_IDS",
+    "LIFE_FORECAST_PROJECTION_SCHEMA_VERSION",
     "COLLECTOR_CONTRACT_VERSION",
     "PUBLIC_SOURCE_IDS",
     "PUBLIC_SOURCE_ID_SET",
     "BriefingDocument",
     "BriefingGenerateRequest",
+    "LifeForecastProjectionFields",
+    "LifeForecastProjectionUpdate",
     "CacheStatus",
     "CollectRequest",
     "CollectorResult",
@@ -205,4 +251,5 @@ __all__ = [
     "rfc3339",
     "sanitize_external_text",
     "stable_item_id",
+    "disabled_life_forecast_projection",
 ]

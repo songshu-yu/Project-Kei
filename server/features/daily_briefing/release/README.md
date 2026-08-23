@@ -1,20 +1,20 @@
 # Daily briefing official release handoff
 
-本目录冻结 `daily_briefing@1.0.2` 的官方发布输入。确定性 ZIP 不进入仓库，
+本目录冻结 `daily_briefing@1.0.3` 的官方发布输入。确定性 ZIP 不进入仓库，
 必须在系统临时目录重新构建。`official-release-fragment.json` 供 PK-000/PK-010
 在 PK-900 通过后合并到官方 Catalog；本任务不修改共享 Catalog 或创建 GitHub
 Release。
 
 模块只包含每日情报聚合、缓存、播报文本、路由和动态面板代码，不包含来源名单、
 真实缓存、Cookie、Token、`.env`、模型输出、音频、虚拟环境或 `vendor/`。来源
-Collector、conversation 和 voice 均为可选依赖：缺少来源时显示
+Collector、conversation、voice 和 life_forecast 均为可选依赖：缺少来源时显示
 `not_configured`，缺少 conversation 时使用确定性播报文本，缺少 voice 时返回
 文本降级。
 
 发布参数：
 
-- Release tag：`modules-2026.08.02`
-- Asset：`daily-briefing-1.0.2.zip`
+- Release tag：`modules-2026.08.19`
+- Asset：`daily-briefing-1.0.3.zip`
 - 固定来源：`songshu-yu/Project-Kei-Modules`
 - 数据策略：卸载保留历史 `server/data/briefing_cache/`
 - 生命周期：安装后需启用并重启；停用/卸载后需重启才移除路由和面板
@@ -22,9 +22,9 @@ Collector、conversation 和 voice 均为可选依赖：缺少来源时显示
 从项目根目录构建：
 
 ```powershell
-$releaseRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("project-kei-daily-briefing-1.0.2-" + [guid]::NewGuid().ToString("N"))
+$releaseRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("project-kei-daily-briefing-1.0.3-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $releaseRoot
-.\scripts\python.ps1 -m features.daily_briefing.package_builder "$releaseRoot\daily-briefing-1.0.2.zip"
+.\scripts\python.ps1 -m features.daily_briefing.package_builder "$releaseRoot\daily-briefing-1.0.3.zip"
 ```
 
 ## Optional voice binding

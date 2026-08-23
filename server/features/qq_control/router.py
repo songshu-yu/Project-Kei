@@ -206,6 +206,7 @@ def create_qq_control_router(
                 "secret",
                 "reply_with_voice",
                 "qq_media_upload_capability",
+                "life_forecast_enabled",
             })
             or any(
                 value is not None and not isinstance(value, str)
@@ -219,6 +220,10 @@ def create_qq_control_router(
             or (
                 "qq_media_upload_capability" in payload
                 and not isinstance(payload["qq_media_upload_capability"], str)
+            )
+            or (
+                "life_forecast_enabled" in payload
+                and not isinstance(payload["life_forecast_enabled"], bool)
             )
         ):
             raise HTTPException(status_code=422, detail="invalid_request")
@@ -234,6 +239,9 @@ def create_qq_control_router(
                 "qq_media_upload_capability": payload.get(
                     "qq_media_upload_capability"
                 ),
+                "life_forecast_enabled": payload.get(
+                    "life_forecast_enabled"
+                ),
             }
             return await update_async(**kwargs) if callable(update_async) else update(**kwargs)
         except QQConfigurationError as exc:
@@ -242,6 +250,7 @@ def create_qq_control_router(
                 "invalid_secret",
                 "invalid_voice_setting",
                 "invalid_media_capability",
+                "invalid_life_forecast_setting",
                 "configuration_incomplete",
             } else 409 if exc.code == "voice_unavailable" else 500
             raise HTTPException(status_code=status_code, detail=exc.code) from exc

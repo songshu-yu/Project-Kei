@@ -1,6 +1,6 @@
 # PK-100 — 控制台公共外壳
 
-- 状态：待集成
+- 状态：已完成
 - 优先级：P1
 - 所属模块：`dashboard`
 - 依赖任务：PK-001、PK-010、PK-020、PK-211
@@ -15,6 +15,9 @@
   文件选择全程零网络。串行窗口中 PK-020 已冻结 supervisor/restart API，PK-211
   已冻结无路径的 GPT-SoVITS 本机目录选择 API；本轮仅消费两份正式契约，不直接
   控制进程、注入目录或扩张后端。
+- 2026-08-19 PK-000 授权继续官方模块中心增量：修复单项官方安装成功后停留繁忙态、
+  未重读本机官方目录缓存的问题，并增加默认关闭、显式确认、依赖预检和严格串行的
+  前端批量安装模式；不新增后端接口，不改变 PK-010 单包校验与生命周期语义。
 
 ## 目标
 
@@ -1036,3 +1039,209 @@ PK-000 确认，完成前执行本任务的全部文档和验证门禁。
 - 验证：`test_dashboard_shell.py`、`node --check core-status.js`、28 项任务文档门禁
   与范围内 `git diff --check` 均通过。未启动或关闭真实服务，未访问个人状态、
   runtime、模型、Voice Pack、`.env` 或 vendor，也未执行 Git 发布操作。
+
+## 官方安装恢复与批量模式（2026-08-19）
+
+### 根因、界面与公共契约
+
+- 根因是 `runOfficialOperation()` 在成功后把官方目录状态停在 `success`，而单项
+  安装按钮只接受 `cache_ready|failed`；同时成功路径只重读本机 registry，没有重读
+  `GET /api/v1/modules/official-catalog` 的本机缓存投影，导致已安装卡仍留在可安装区。
+- 单项安装现在成功后依次只读重载本机 registry 与官方目录缓存，并保留成功文案；
+  二次读取任一失败会显示明确警告，`finally` 仍保证状态离开 confirming/downloading/
+  installing/success 阻塞态。失败态继续允许刷新或安装其他模块，不会把旧模块面板清空。
+- “可安装模块”新增默认关闭的“批量选择”。开启后才显示兼容、未安装且声明
+  `install_official` 的复选框、已选计数、全选兼容项、取消和安装已选；所有选择操作
+  只变更内存 DOM，不写 localStorage，不发 API。
+- 总确认使用原生 `dialog`，列出确定性安装顺序、模块与版本、固定官方来源、合计大小、
+  必需依赖和权限；初始焦点落在确认按钮，取消按钮与 Escape 均可关闭，确认前零 POST。
+  移动端工具栏降为单列，复选框保持 40px 可操作区且页面无水平溢出。
+
+### 依赖计划、执行与数据副作用
+
+- `buildOfficialBatchPlan()` 仅使用已读取的 Catalog/registry 快照：已安装依赖视为满足，
+  所选依赖按 module_id 稳定拓扑排序；缺失、循环、不兼容、过期选择或同模块多版本均在
+  任何 POST 前 fail closed，可选依赖不参与阻断。
+- 用户确认后由 `runOfficialBatchQueue()` 以 `for` + `await` 严格串行复用现有
+  `POST /api/v1/modules/{module_id}/install-official`，请求体仍为既有
+  `{version, confirmation:"module_id@version"}`。没有 Promise.all、批量后端接口、自动
+  启用、自动重启、业务 API 或浏览器直连 GitHub。
+- 任一项失败立即停止：报告已完成、失败和未执行，保留已成功模块且不回滚；随后仍只读
+  重载本机 registry/Catalog，清除已完成选择并保留可重试项。全部成功则退出批量模式并
+  恢复其他安装按钮。fake Browser 中顺序为 `conversation` 后
+  `affection_memory`，随后两次本机 GET；确认前安装 POST 为 0。
+- 测试与 Browser 均只使用内存状态、临时/fake API；没有访问 GitHub、真实 registry、
+  runtime、个人数据、缓存、凭据、模型或 vendor，也没有安装真实模块。
+
+### 验证结果与遗留
+
+- `node --check server/static/dashboard/module-management.js`：通过。
+- `check_html_contract()` + `check_javascript_contract()`：通过；纯 JS 回归覆盖默认隐藏、
+  安装成功恢复、二次目录失败恢复、已安装依赖、稳定排序、缺失/循环/不兼容零 POST、
+  最大并发 1、第二项失败停止及剩余队列报告。
+- Browser skill fake 验收：开启批量选择后 10 个候选复选框可见，选择/总确认前安装
+  POST 为 0；确认文案显示 2 项、4.0 KiB、依赖与权限；实际 fake POST 严格按依赖顺序
+  两次执行，随后 registry/Catalog 各 GET 一次，卡片移除、状态回到 `cache_ready`、其他
+  安装按钮可用。单项安装后同样移除卡片并可继续安装。375px 视口
+  `clientWidth === scrollWidth === 375`，工具栏宽 291px，复选框均在视口内；确认按钮
+  自动聚焦且 Escape 关闭。
+- 完整 `test_dashboard_shell.py` 当前在进入本增量检查前，被共享工作区中 PK-230 新增但
+  尚未同步到该测试清单的 `learning` manifest 数量断言阻断；未覆盖或代替 PK-230 hunk，
+  已单独执行本增量的 HTML/JS 专项。PK-900 应在 PK-230 清单收口后重跑完整文件。
+- PK-100 保持“待集成”，由 PK-000/PK-900 串行复核；不修改 `TASKS.md`、README、
+  PK-010 后端或 PK-241 路径，不自行暂存、提交、推送或发布。
+
+### 本增量八项完成文档门禁
+
+- [x] TASK_RECORD — 已记录根因、单项恢复、批量状态机、依赖计划、数据副作用和验证。
+- [x] TASKS_BOARD — 按授权不修改共享 `TASKS.md`；PK-100 任务文件保持“待集成”。
+- [x] PUBLIC_README — 不适用：本轮总控冻结 README，且未增加端点或改变安装语义。
+- [x] MODULE_CATALOG — 不适用：只消费现有 Catalog 字段和单包接口，不改目录元数据。
+- [x] ARCHITECTURE_DOCS — 不适用：批量仅为前端串行编排，PK-010 单包边界不变。
+- [x] LOCAL_README — 不适用：未改变或读取本机路径、端口、解释器、模型或秘密。
+- [x] AGENT_RULES — 不适用：未改变协作、安全、测试、文档或 Git 规则。
+- [x] VALIDATION — 已记录 JS、专项 fake、Browser、移动端、请求审计、文档门禁与 diff；
+  完整 Dashboard 清单的共享 PK-230 阻断如实保留待串行收口。
+
+## 官方目录与本机版本可靠归并（2026-08-20）
+
+### 接口与界面契约
+
+- 官方卡不再把 Catalog 投影中的 `installed_version` 当作唯一事实源；前端用官方条目的
+  `module_id` 精确关联 `GET /api/v1/modules` registry 项，再用与 Core
+  `compare_semver()` 一致的受控 SemVer 规则比较版本。非法版本、未知本机目录或非受信
+  `songshu-yu/Project-Kei-Modules` 来源均 fail closed。
+- 未安装模块只对同一 `module_id` 的最高兼容受信版本显示“下载并安装”；同版本显示
+  “已安装”并禁用按钮；本机较旧且 registry 明确允许 `update_official` 时，仅最高合法
+  目标显示“下载并更新”；本机较新显示“本机版本较新”。不兼容版本、多版本中的非目标
+  版本和本机非 `official_github_release` 来源均显示明确只读状态，不进入批量候选。
+- 更新继续唯一复用
+  `POST /api/v1/modules/{module_id}/update-official` 与既有
+  `{version, confirmation:"module_id@version"}` 确认体；没有新增更新逻辑、任意 URL、
+  浏览器下载、自动回滚、自动启用或自动重启。批量模式仍只包含未安装的 install 项。
+- 单项安装/更新成功后仍只读重载 registry 与官方 Catalog 本机缓存；并发初始 GET
+  无论完成顺序如何，registry 到达后都会重新渲染版本状态。二次 GET 失败继续由既有恢复
+  路径解除 busy，保留成功/警告文案和其他可操作按钮。
+
+### 数据副作用、测试与遗留
+
+- 页面加载、版本比较、批量开关和选择只读取本机 Core 数据并修改内存 DOM，零 POST、
+  零 GitHub 网络、零浏览器持久化；只有用户在二次确认后才发送单次 install/update POST。
+- `node --check server/static/dashboard/module-management.js` 与 Python 语法检查通过；
+  `check_html_contract()`、`check_javascript_contract()` 通过。纯 JS 回归覆盖 SemVer
+  预发布/构建元数据、非法版本、未安装、同版本、可更新、本机较新、不兼容、非官方来源、
+  多官方版本唯一目标、批量排除已安装项，以及唯一冻结 update 请求路径和请求体。
+- Browser skill 仅连接内存 fake 控制台：同版本卡显示禁用“已安装”；显式安装
+  `conversation@1.0.0` 后卡片立即收敛为“已安装”，另一安装按钮保持可用；批量模式排除
+  已安装项。375px 视口 `clientWidth === scrollWidth === 375`，官方卡单列 291px，无横向
+  溢出。未刷新官方目录、未访问 GitHub、未安装真实模块。
+- 完整 `test_dashboard_shell.py` 仍在本增量执行前被共享 PK-230 新增 `learning` manifest
+  与旧清单数量断言阻断；该共享 hunk 未在 PK-100 越权修改，交 PK-900 串行收口后重跑。
+  PK-100 状态保持“待集成”。
+
+### 本增量八项完成文档门禁
+
+- [x] TASK_RECORD — 本节记录归并主键、SemVer、来源门槛、动作、副作用和验证。
+- [x] TASKS_BOARD — 按授权不修改混合 `TASKS.md`；任务文件保持“待集成”。
+- [x] PUBLIC_README — 不适用：未新增用户端点或改变安装步骤，且 README 属共享冻结路径。
+- [x] MODULE_CATALOG — 不适用：只消费 PK-010 已冻结字段，不修改或伪造官方目录。
+- [x] ARCHITECTURE_DOCS — 不适用：前端归并不改变模块生命周期或数据所有权。
+- [x] LOCAL_README — 不适用：未改变或读取本机路径、端口、registry、runtime 或秘密。
+- [x] AGENT_RULES — 不适用：未改变协作、安全、文档、测试或 Git 规则。
+- [x] VALIDATION — JS/Python 语法、专项 JS、fake Browser、移动端和范围 diff 已验证；
+  完整测试的 PK-230 清单阻断已如实记录。
+
+## PK-900 P1 退回整改：严格身份与任意精度 SemVer（2026-08-20）
+
+### 退回根因与最小修复
+
+- PK-900 独立验收确认首轮归并仍通过公共 `moduleId()` 的 `key || module_id` 兼容逻辑
+  建立 registry 索引，导致 `key` 与 `module_id` 交叉时误判安装状态。本轮保留旧 UI 对
+  `key` 的展示/生命周期兼容，但官方归并新增独立严格身份路径：只接受原值精确匹配
+  `^[a-z][a-z0-9_]{0,63}$` 的非空 registry `module_id`，不回退 key、name、label 或文件名。
+- registry 中同一合法 `module_id` 的任意重复记录均标记为
+  `registry_conflict`，官方卡显示“本机 registry 身份冲突，拒绝操作”；不会用第一条或
+  最后一条决定安装/更新。空或非法 `module_id` 不会借助 `key` 关联任何官方模块。
+- 首轮 SemVer 将数字段转成 JavaScript `Number`，在超过安全整数范围后与 Core 的 Python
+  任意精度整数失配。本轮主/次/补丁和纯数字 prerelease 标识符全部使用 `BigInt` 比较；
+  不支持 BigInt 的运行环境直接报错并 fail closed，不存在 Number/parseInt 降级。合法性、
+  前导零、release 高于 prerelease、数字标识符低于字符串标识符、字符串字典序和 build
+  metadata 不参与优先级均继续与 Core `compare_semver()` 一致。
+
+### 永久回归、数据副作用与结果
+
+- 新增逆向固定：官方 `alpha` + 本机 `key=wrong,module_id=alpha` 必须为 installed；本机
+  `key=alpha,module_id=beta` 必须让官方 alpha 保持 install；空 module_id + key=alpha
+  不得关联；两个 alpha registry 记录必须为 registry_conflict。
+- 新增大整数正反序固定：`9007199254740992.0.0 < 9007199254740993.0.0` 及反序，
+  `1.0.0-9007199254740992 < 1.0.0-9007199254740993` 及反序；同时保留普通
+  prerelease/build、非法版本、完整状态矩阵、唯一 update POST、批量只含 install、成功后
+  registry/Catalog 双 GET 与失败恢复回归。
+- `node --check`、Python `py_compile`、`check_html_contract()`、
+  `check_javascript_contract()` 均通过。Browser skill 仅连接 fake FastAPI：同版本官方卡
+  禁用、未安装卡可用、批量候选排除已安装项；375px 下
+  `clientWidth === scrollWidth === 375`。页面读取与比较没有 GitHub、真实 registry/runtime、
+  个人数据、秘密或真实模块副作用。
+- 完整 Dashboard 文件仍预期在共享 PK-230 `learning` manifest 21/20 清单处停止；本轮未
+  修改该清单、PK-230、Core、API、Catalog、README 或 TASKS。PK-100 保持“待集成”，交同一
+  PK-900 复验。
+
+### 本次整改八项完成文档门禁
+
+- [x] TASK_RECORD — 已记录 PK-900 退回证据、根因、严格身份、BigInt 与实际验证。
+- [x] TASKS_BOARD — PK-000 最终复核后已同步 `TASKS.md` 为“已完成”。
+- [x] PUBLIC_README — 不适用：未改变用户安装步骤、公共端点或界面操作流程。
+- [x] MODULE_CATALOG — 不适用：未修改目录内容、来源、版本或发布元数据。
+- [x] ARCHITECTURE_DOCS — 不适用：只修复前端读取归并，不改变生命周期或数据所有权。
+- [x] LOCAL_README — 不适用：未读取或记录本机 registry、runtime、路径、状态或秘密。
+- [x] AGENT_RULES — 不适用：未改变协作、安全、测试、文档或 Git 规则。
+- [x] VALIDATION — 精确身份和大整数逆向、JS/Python、Browser、文档与 scoped diff 均执行。
+
+## PK-900 第二次退回收口：冲突确定性与生产同形 Browser 夹具（2026-08-20）
+
+- 第二次复验确认严格 `module_id` 与 BigInt 两项已关闭，但重复 ID 的归并仍把输入第一条
+  记录放入 `local_module`，使冲突卡的本机版本随排列变化。本轮在任何版本、来源和动作
+  计算前将冲突 ID 的本机候选固定为 `null`；公开结果只保留稳定的
+  `registry_conflict` 与“本机 registry 身份冲突，拒绝操作”，不泄漏任一候选的 key、
+  version、label、来源或其他字段。
+- 永久逆向使用两条同为 alpha、但 key、version、label、来源均不同的记录，正反顺序的
+  完整归并结果必须 `JSON.stringify` 全等、`local_module === null`、状态为
+  `registry_conflict`；两个顺序均不能产生 install/update，批量计划均在零请求前以
+  `batch_selection_stale` 拒绝。单条严格合法记录及既有身份/版本矩阵继续通过。
+- Browser preview 的 `_module_record()` 已补齐生产 `ModuleManager._describe()` 同形的
+  `module_id`，没有让产品回退 `key`。实际 fake 页面确认 bilibili 同版卡显示“已安装”且
+  按钮禁用，conversation 未安装卡可操作；批量候选中 bilibili 数量为 0。总确认 dialog
+  具有 `aria-labelledby`/`aria-describedby` 且确认按钮获得焦点，Escape 关闭；375px
+  `clientWidth === scrollWidth === 375`。fake audit 在页面加载、展开、批量选择与取消后
+  `POST=0`，只发生 registry/Catalog 各一次本机 GET。
+- 本轮只修改 PK-100 三个授权文件，不改变 Core/API/Catalog、PK-230、README 或 TASKS；
+  未读取真实 registry/runtime、业务数据、秘密或访问 GitHub。任务继续“待集成”，交同一
+  PK-900 再次聚焦复验。
+
+### 本次收口八项完成文档门禁
+
+- [x] TASK_RECORD — 已记录第二次退回、确定性冲突结果、生产同形夹具和实际 Browser 证据。
+- [x] TASKS_BOARD — 不修改共享 `TASKS.md`；PK-100 继续“待集成”。
+- [x] PUBLIC_README — 不适用：未改变用户操作、端点或安装说明。
+- [x] MODULE_CATALOG — 不适用：未访问远端或修改目录内容与版本。
+- [x] ARCHITECTURE_DOCS — 不适用：未改变 registry 或生命周期契约。
+- [x] LOCAL_README — 不适用：未读取或记录本机私有状态、路径或秘密。
+- [x] AGENT_RULES — 不适用：未改变项目协作、安全、测试或 Git 规则。
+- [x] VALIDATION — 正反深度等价、零动作、JS/Python、Browser、docs30 与 scoped diff 已执行。
+
+## PK-000 最终关闭（2026-08-20）
+
+- PK-900 对第二次最小收口完成独立聚焦复验并判定通过：重复 `module_id` 冲突的正反输入公开结果完全相等、`local_module=null` 且不泄露候选字段；严格身份、超大整数 BigInt SemVer、状态矩阵、唯一 `update-official`、批量 install-only、双 GET 恢复与 375px Browser fake 均通过。
+- PK-000 重新核对正式报告与实际差异，并独立运行 `check_html_contract()`、`check_javascript_contract()`，结果通过；文档门禁与范围 `git diff --check` 继续通过。共享 PK-230 `learning` manifest 21/20 冲突保持独立，不作为 PK-100 阻断，也未由本任务越权修改。
+- PK-100 本轮累计增量正式关闭为“已完成”，并同步 `TASKS.md`。PK-900 因仍承载其他开放批次继续保持“进行中”；本结论不授权 Git 提交、推送、发布或工作区清理。
+
+### 最终关闭八项完成文档门禁
+
+- [x] TASK_RECORD — 已记录两次退回、独立复验与总控最终结论。
+- [x] TASKS_BOARD — 已由 PK-000 同步为“已完成”。
+- [x] PUBLIC_README — 不适用：本次收口未改变用户操作或公共端点。
+- [x] MODULE_CATALOG — 不适用：未修改官方目录内容或发布元数据。
+- [x] ARCHITECTURE_DOCS — 不适用：未改变 registry、生命周期或数据所有权契约。
+- [x] LOCAL_README — 不适用：未记录本机路径、registry、runtime、状态或秘密。
+- [x] AGENT_RULES — 不适用：未改变协作与安全规则。
+- [x] VALIDATION — PK-900 聚焦复验、总控 HTML/JS 契约、docs30 与范围 diff-check 均通过。

@@ -451,6 +451,7 @@ export function createBridgeMessageHandler({
   onVoiceResult = () => {},
   lifecycleSignal = null,
   now = () => Date.now(),
+  lifeForecastEnabled = false,
 }) {
   const sequence = () => Math.floor(Math.random() * 65_536);
   const sendPayload = (user, body, { signal } = {}) => qqRequest(
@@ -532,6 +533,7 @@ export function createBridgeMessageHandler({
   const businessMenu = createBusinessMenuController({
     callApi: businessApi,
     now,
+    lifeForecastEnabled,
     onFocusStarted: async value => {
       if (value.encouragementAfterMinutes === null) {
         focusEncouragements?.cancelUser?.(value.userOpenId);

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
 
@@ -17,18 +18,27 @@ from .models import (
     CoverageStatus,
     IntelItem,
     SourceCoverage,
+    LIFE_FORECAST_PROJECTION_FIELD_IDS,
+    LIFE_FORECAST_PROJECTION_SCHEMA_VERSION,
+    LifeForecastProjectionUpdate,
     normalize_source_ids,
     rfc3339,
     sanitize_external_text,
 )
 from .prompt_builder import BriefingPromptBuilder
 from .providers import BriefingTextGenerator
-from .repository import BriefingCachePersistenceError, BriefingRepository, document_digest
+from .repository import (
+    BriefingCachePersistenceError,
+    BriefingRepository,
+    LifeForecastProjectionRepository,
+    document_digest,
+)
 from .time_utils import get_timezone, localize
 
 
 Clock = Callable[[], datetime]
 SourceConfigProvider = Callable[[], Mapping[str, Any]]
+LifeForecastProvider = Callable[[], object]
 
 
 class BriefingService:
@@ -45,6 +55,10 @@ class BriefingService:
         patch_cooldown: timedelta = timedelta(minutes=30),
         rewrite_timeout: float = 60.0,
         section_limits: Optional[Mapping[str, int]] = None,
+        life_forecast_projection_repository: Optional[
+            LifeForecastProjectionRepository
+        ] = None,
+        life_forecast_provider: Optional[LifeForecastProvider] = None,
     ):
         get_timezone(timezone_name)
         self.gateway = gateway
@@ -65,6 +79,10 @@ class BriefingService:
             "general": 5,
             **{str(key): max(0, int(value)) for key, value in (section_limits or {}).items()},
         }
+        self.life_forecast_projection_repository = (
+            life_forecast_projection_repository
+        )
+        self.life_forecast_provider = life_forecast_provider
         # Python 3.8 binds asyncio primitives to the current loop at creation.
         # Installable modules are registered synchronously before an ASGI loop
         # exists, so create the lock lazily on the first mutation request.
@@ -94,6 +112,186 @@ class BriefingService:
         if local_date == self.today():
             self.repository.invalidate_stale_summary(local_date)
         return self.repository.load(local_date)
+
+    @staticmethod
+    def _projection_config_payload(
+        update: LifeForecastProjectionUpdate,
+    ) -> dict[str, Any]:
+        return {
+            "schema_version": LIFE_FORECAST_PROJECTION_SCHEMA_VERSION,
+            "enabled": bool(update.enabled),
+            "fields": {
+                key: bool(getattr(update.fields, key))
+                for key in LIFE_FORECAST_PROJECTION_FIELD_IDS
+            },
+        }
+
+    def life_forecast_projection_configuration(self) -> dict[str, Any]:
+        if self.life_forecast_projection_repository is None:
+            from .models import disabled_life_forecast_projection
+
+            update = disabled_life_forecast_projection()
+        else:
+            update = self.life_forecast_projection_repository.load()
+        return self._projection_config_payload(update)
+
+    def save_life_forecast_projection_configuration(
+        self,
+        update: LifeForecastProjectionUpdate,
+    ) -> dict[str, Any]:
+        if self.life_forecast_projection_repository is None:
+            raise RuntimeError("life_forecast_projection_unavailable")
+        saved = self.life_forecast_projection_repository.save(update)
+        return self._projection_config_payload(saved)
+
+    @staticmethod
+    def _finite_number(value: object) -> Optional[float | int]:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        return value if math.isfinite(float(value)) else None
+
+    @staticmethod
+    def _short_text(value: object, *, limit: int = 240) -> str:
+        return sanitize_external_text(value, limit=limit)
+
+    @classmethod
+    def _advice_projection(cls, value: object, *, umbrella: bool = False):
+        if not isinstance(value, Mapping):
+            return None
+        status = cls._short_text(value.get("status"), limit=40)
+        text = cls._short_text(value.get("text"), limit=240)
+        if not status or not text:
+            return None
+        result: dict[str, object] = {"status": status, "text": text}
+        if umbrella:
+            bring = value.get("bring_umbrella")
+            if type(bring) is bool:
+                result["bring_umbrella"] = bring
+        return result
+
+    @classmethod
+    def _warnings_projection(cls, value: object) -> list[dict[str, str]]:
+        if not isinstance(value, list):
+            return []
+        result: list[dict[str, str]] = []
+        for item in value[:8]:
+            if not isinstance(item, Mapping):
+                continue
+            warning = {}
+            for key in ("title", "severity", "description"):
+                text = cls._short_text(item.get(key), limit=240)
+                if text:
+                    warning[key] = text
+            if warning:
+                result.append(warning)
+        return result
+
+    def life_forecast_projection(self) -> dict[str, Any]:
+        config = self.life_forecast_projection_configuration()
+        empty = {
+            "enabled": bool(config["enabled"]),
+            "ready": False,
+            "cache_status": "disabled" if not config["enabled"] else "unavailable",
+            "fields": {},
+        }
+        if not config["enabled"]:
+            return empty
+        provider = self.life_forecast_provider
+        if not callable(provider):
+            return empty
+        try:
+            snapshot = provider()
+        except Exception:
+            return empty
+        if not isinstance(snapshot, Mapping):
+            return empty
+        cache_status = snapshot.get("cache_status")
+        forecast = snapshot.get("forecast")
+        advice = snapshot.get("life_advice")
+        fortune = snapshot.get("fortune")
+        if (
+            cache_status != "available"
+            or not isinstance(forecast, Mapping)
+            or not isinstance(advice, Mapping)
+            or forecast.get("local_date") != self.today().isoformat()
+        ):
+            empty["cache_status"] = (
+                cache_status
+                if cache_status in {"missing", "stale_configuration", "corrupted"}
+                else "unavailable"
+            )
+            return empty
+
+        selected = config["fields"]
+        projected: dict[str, object] = {}
+        if selected["weather_condition"]:
+            condition = self._short_text(forecast.get("condition"), limit=80)
+            code = forecast.get("condition_code")
+            value = {}
+            if condition:
+                value["condition"] = condition
+            if isinstance(code, int) and not isinstance(code, bool):
+                value["condition_code"] = code
+            if value:
+                projected["weather_condition"] = value
+        if selected["temperature_range"]:
+            minimum = self._finite_number(forecast.get("temperature_min_c"))
+            maximum = self._finite_number(forecast.get("temperature_max_c"))
+            if minimum is not None and maximum is not None:
+                projected["temperature_range"] = {
+                    "minimum_c": minimum,
+                    "maximum_c": maximum,
+                }
+        numeric_fields = {
+            "apparent_temperature": ("apparent_temperature_c", "celsius"),
+            "precipitation_probability": (
+                "precipitation_probability_max_pct",
+                "maximum_pct",
+            ),
+            "wind": ("wind_speed_max_kmh", "maximum_kmh"),
+        }
+        for field_id, (source_id, output_id) in numeric_fields.items():
+            if selected[field_id]:
+                number = self._finite_number(forecast.get(source_id))
+                if number is not None:
+                    projected[field_id] = {output_id: number}
+        if selected["alerts"]:
+            status = self._short_text(forecast.get("warnings_status"), limit=40)
+            if status in {"available", "unavailable"}:
+                projected["alerts"] = {
+                    "status": status,
+                    "warnings": self._warnings_projection(forecast.get("warnings")),
+                }
+        for field_id in ("clothing", "travel_umbrella", "uv", "air_quality"):
+            if selected[field_id]:
+                value = self._advice_projection(
+                    advice.get(field_id),
+                    umbrella=field_id == "travel_umbrella",
+                )
+                if value is not None:
+                    projected[field_id] = value
+        if (
+            selected["fortune"]
+            and isinstance(fortune, Mapping)
+            and fortune.get("enabled") is True
+            and fortune.get("date") == self.today().isoformat()
+            and fortune.get("disclaimer") == "娱乐内容、非事实预测"
+        ):
+            value = {
+                "enabled": True,
+                "disclaimer": "娱乐内容、非事实预测",
+            }
+            for key in ("focus", "color", "small_action", "ruleset", "date"):
+                text = self._short_text(fortune.get(key), limit=160)
+                if text:
+                    value[key] = text
+            projected["fortune"] = value
+        return {
+            "enabled": True,
+            "ready": bool(projected),
+            "cache_status": "available",
+            "fields": projected,
+        }
 
     @staticmethod
     def _parse_timestamp(value: str) -> Optional[datetime]:

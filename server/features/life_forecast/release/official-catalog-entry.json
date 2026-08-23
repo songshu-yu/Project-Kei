@@ -1,0 +1,21 @@
+{
+  "asset_name": "life_forecast-1.0.0.zip",
+  "conflicts": [],
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "data_policy": "preserve_on_uninstall",
+  "dependencies": [],
+  "manifest_sha256": "ef3673c9f973c9b231c41ed03649e7e046a0c07f67dc61c7431860c07336986c",
+  "module_id": "life_forecast",
+  "name": "每日生活预报",
+  "optional_dependencies": [],
+  "package_sha256": "b1f981a23e6fca2dcb4cd056c47ef25c9aa3d03a61111fe4a3a498b45eeb3a99",
+  "package_size": 43495,
+  "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.19/life_forecast-1.0.0.zip",
+  "permissions": [
+    "local_state",
+    "network_download"
+  ],
+  "release_tag": "modules-2026.08.19",
+  "requires_restart": true,
+  "version": "1.0.0"
+}

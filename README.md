@@ -31,9 +31,10 @@ Project Kei 是一个以《碧蓝档案》天童 Kei 为人格的 Windows 本地
 | GPT-SoVITS TTS | PK-211 Engine Provider、官方固定来源描述、本机登记与显式受控获取已实现；共享实例以单一引擎会话串行完成 Pack 确认、权重切换和合成 | `server/features/voice/providers/gpt_sovits/` |
 | Voice Pack | PK-212 已实现版本化 Schema、本机原子注册表与切换；PK-213 已实现可信 catalog、受限 HTTPS 获取、安全 ZIP、离线导入、确定性构建及根 CLI；经授权的 `kei@1.0.0` 由公共模块分发仓库提供规范 ZIP、摘要和 release manifest | `voice-pack.bat`、`voice-pack-build.bat`、`server/features/voice/voice_packs/`、`/api/v1/voice-packs/*` |
 | faster-whisper ASR | 保留 8010 兼容适配 | `server/features/voice/providers/asr_http.py` |
-| 每日情报 | 已迁入可安装 daily_briefing 模块；生产 composition 按已启用来源模块注册 Collector 1.0，实现来源隔离、论文 fallback、规范化/去重、覆盖/补采、原子缓存与 Kei 播报 | `server/features/daily_briefing/`、`/api/v1/briefing/*`、兼容 `/briefing/today*` |
+| 每日情报 | 已迁入可安装 daily_briefing 模块；生产 composition 按已启用来源模块注册 Collector 1.0，并可在默认关闭的本机总/逐项开关下只读投影当天生活预报，不改写简报缓存 | `server/features/daily_briefing/`、`/api/v1/briefing/*`、兼容 `/briefing/today*` |
+| 每日生活预报 | PK-240 已提供独立可安装候选；默认禁用联网，显式刷新后按本地日期缓存天气事实/生活建议，可选本地娱乐运势 | `server/features/life_forecast/`、`/api/v1/life-forecast/*` |
 | 每日情报来源管理 | 已迁入 `intel_sources` registry；版本化增改删、原子本机配置和只读 Collector 快照共用同一 service，控制台使用版本化 API | `/api/v1/intel-sources`、兼容 `/dashboard/intel-sources` |
-| QQ 官方机器人 bridge | 已收口为独立 Node sidecar；白名单、消息去重、有限 401 重试、版本化 conversation/briefing 消费与有界重连均在 sidecar | `server/qq_bridge/`、`/api/v1/qq-control/*` |
+| QQ 官方机器人 bridge | 已收口为独立 Node sidecar；生活预报默认关闭，启用后固定菜单按钮显式刷新一次，四个完整关键词只读当天缓存，不增加定时推送或自动天气刷新 | `server/qq_bridge/`、`/api/v1/qq-control/*` |
 | QQ 定时情报推送 | 缓存优先；版本化显式预生成、只读发送、逐用户/跨重启 at-most-once 状态 | `server/qq_bridge/src/daily_briefing_scheduler.mjs` |
 | 生命维持提醒 | 合法时间窗/正间隔调度、逐槽位去重、受控生成失败的本地确定性兜底 | `server/qq_bridge/src/life_support_scheduler.mjs` |
 | 好感度、长期记忆、斩妖除魔、健身、专注、日历 | 均已形成可安装 `in_process` 包候选；只有安装、启用并重启后才装配新旧 API 和动态面板，卸载保留各自既有个人状态 | `server/features/fitness/`、`server/features/affection_memory/`、`server/features/focus/`、`server/features/calendar/`、`server/features/demon_slayer/` |
@@ -657,6 +658,46 @@ Kei 复盘只通过 PK-200 的稳定 `TextGenerator.generate_text()` 调用，�
 
 repository 对同一路径的读改写加锁，使用同目录唯一临时文件、`flush/fsync` 与原子替换。损坏 JSON、错误根结构、篡改奖励或保存失败明确失败，不能回空后覆盖；普通 status、控制台加载与模块 catalog 均零写入、零外网。版本化接口不拥有 TTS，只有明确请求 `with_audio=true` 且刚解锁奖励的 legacy check-in 才在应用接缝尝试本机语音。所有 fitness HTTP 读取和写入仅接受本机客户端及可信 8000 控制台 Origin，浏览器不保存健身业务数据。
 
+### 每日生活预报可安装模块
+
+`life_forecast@1.0.0` 是 PK-240 的独立 `in_process` 模块候选。安装、启用并重启
+Core 后，控制台以“天气事实 / 生活建议 / 娱乐运势”三个清晰区块显示今天内容；
+继续复用公共三主题、响应式折叠、键盘/ARIA 和本机头像配置，不在浏览器保存位置或
+业务缓存。
+
+模块默认 Provider 为 `disabled`。用户在控制台明确填写城市显示名与经纬度、选择
+`open_meteo` 并保存时只写 Git 忽略的本机配置，不联网；只有再次点击“显式刷新”
+才把经纬度发送到固定 Open-Meteo 天气/空气质量 HTTPS API。页面加载、展开、主题或
+Provider 选择、配置/今天缓存读取都不访问上游。城市标签、生日、星座和娱乐内容
+不会发给第三方；模块不自动定位，也不读取系统定位。
+
+今天缓存位于 `server/data/modules/life_forecast/cache/YYYY-MM-DD.json`，配置位于
+同一模块数据根的 `config.json`。正常读取只看用户本地今天文件；旧日期、损坏缓存或
+位置配置变化都不会冒充今天。获取、解析或原子保存失败保留旧缓存。缓存不保存明文
+城市/坐标，只保存配置指纹；卸载默认保留该模块数据，重装后继续关联。
+
+天气事实包括本地 allowlist 条件、当前/体感/最高/最低温、最大降水概率、最大风速、
+UV、美国 AQI 和必要预警可用性。第一版 Open-Meteo 没有模块可消费的官方灾害预警，
+因此预警明确为 `unavailable`；UV/AQI 上游缺失也照实显示 unavailable，不编造。
+生活建议只按规范化数值做确定性穿衣、出行/带伞、UV 和空气质量提示，不替代当地
+官方、医疗或应急指引。
+
+可选“今日运势”完全在本机生成，不使用星座、生日、位置或第三方 API。公开规则为
+`local-date-sha256-v1`：对规则版本和用户本地日期做 SHA-256，从固定提示/颜色/小行动
+表中选取；同日稳定、可关闭，始终标注“娱乐内容、非事实预测”，与天气事实严格
+分区。
+
+Open-Meteo API 数据按 CC BY 4.0 使用，控制台保留 Open-Meteo 署名链接；空气质量
+数据同时署名 CAMS。免费公共服务适合非商业低频使用，商业/高量部署应按
+[Open-Meteo 当前许可](https://open-meteo.com/en/license)与服务条款选择合适端点。
+Project Kei 不内置或回显天气 API Key。完整 Provider、缓存、隐私和未来集成边界见
+[每日生活预报模块契约](docs/architecture/daily-life-forecast.md)。
+
+PK-240 本身不拥有每日情报或 QQ 调度。PK-241 只通过当天只读摘要契约完成消费端
+联动：每日情报使用默认关闭的总开关和逐项投影；QQ 使用默认关闭的总开关，固定
+“生活预报”按钮会显式刷新一次，四个完整关键词仅查询当天缓存。两端都不复制
+PK-240 的 Provider、缓存或生活规则，也不新增定时推送。
+
 ### 每日情报来源管理
 
 控制台可维护以下个人关注目标：
@@ -812,6 +853,7 @@ Release 或把 `kei@1.0.0` 描述为可远程安装。
 | B 站昵称/头像资料 | `server/data/bilibili_profiles.json` | 仅用于控制台识别 UID；成功后缓存，手动刷新时才更新 |
 | B 站本机采集参数 | `server/data/bilibili_credentials.local.json` | Git 忽略；active/candidate 双槽原子保存三项 allowlist Cookie，状态 API 只返回脱敏元数据 |
 | 情报缓存 | `server/data/briefing_cache/` | 每日采集结果；`kei_summary_today.json` 只保留当天供 Kei 播报的总结，跨天启动或更新时自动删除旧内容 |
+| 每日生活预报配置/缓存 | `server/data/modules/life_forecast/` | Git 忽略；配置保存城市标签、经纬度、Provider 与娱乐开关，按日本地缓存不保存明文位置；只有显式刷新访问上游 |
 | QQ bridge 状态 | `server/qq_bridge/data/` | 忽略；每日/生命维持状态保存日期或槽位及哈希投递标记；专注鼓励状态只保存用户哈希、不透明 focus session、起止时间和有限投递状态。三者均原子替换且有数量上限，不保存完整 OpenID、任务、消息、情报、模型回复或凭证 |
 | 依赖/模型/输出 | `node_modules/`、`server/models/`、`server/output/` | 可再生成或体积大；voice 请求暂存位于 `output/.voice_tmp/`，完整输出位于 `output/voice_replies/`，均不得提交 |
 | 历史个人状态（已跟踪） | `server/data/affection_state.json`、`focus_timer.json`、`memories.json`，以及 `server/systems/data/focus_timer.json` | 仓库历史目前已跟踪；它们仍是用户数据，未经明确授权不得重置、输出，或把无关改动一并提交。focus 模块继续关联既有 `systems/data` 路径且不自动合并同名文件；若要迁移为仅本地文件，必须单独确认。 |
@@ -850,6 +892,7 @@ Release 或把 `kei@1.0.0` 描述为可远程安装。
 | QQ bridge 状态/启动（兼容） | `GET /dashboard/qq-bridge/status`、`POST /dashboard/qq-bridge/start`（委托同一 service） |
 | 每日情报（版本化只读） | `GET /api/v1/briefing/today`、`GET /api/v1/briefing/today/script`、`GET /api/v1/briefing/generation-status`（不采集、不改写、不合成、不写缓存） |
 | 每日情报（版本化生成） | `POST /api/v1/briefing/generate`、`POST /api/v1/briefing/refresh`（仅本机；后者明确强制覆盖） |
+| 每日生活预报 | `GET /api/v1/life-forecast/today`、`GET/PUT /api/v1/life-forecast/config`、`POST /api/v1/life-forecast/refresh`（仅 refresh 访问固定上游；需安装、启用并重启） |
 | 每日情报（兼容） | `GET /briefing/today`、`POST /briefing/today/voice`；默认 `fetch=false`，定时预生成须显式 `fetch=true` |
 | 控制台情报状态/生成 | `GET /dashboard/briefing/status`、`POST /dashboard/briefing/generate`；强制重建使用确认后的 `refresh=true` |
 | 情报来源名单（版本化） | `GET` / `PUT /api/v1/intel-sources`，以及单条 `POST /{field}`、`PUT` / `DELETE /{field}/{index}`（仅本机控制台） |
@@ -920,6 +963,9 @@ fixture、也未由 literal `parametrize` 提供的新增 `check_*`：
 # PK-110 进程内生成阶段、来源进度、失败/取消与只读状态 API（全 fake、临时目录）
 ..\scripts\python.ps1 tests\test_daily_briefing_generation_status.py
 node tests\test_dashboard_briefing_progress.mjs
+
+# PK-240 天气 Provider、跨日/DST、原子缓存、并发、隐私、动态包（全 fake/MockTransport/临时目录）
+..\scripts\python.ps1 -m pytest tests\test_life_forecast_module.py -q
 
 # 当天 Kei 播报稿分离缓存与旧 Schema 只读兼容（临时目录）
 ..\scripts\python.ps1 tests\test_daily_briefing_summary_cache.py

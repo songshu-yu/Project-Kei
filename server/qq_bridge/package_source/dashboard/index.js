@@ -84,6 +84,7 @@ function dependencySummary(catalog) {
     ["focus", "专注计时"],
     ["calendar", "日历与修炼"],
     ["voice", "语音回复"],
+    ["life_forecast", "生活预报"],
   ];
   return labels.map(([key, label]) => `${label}：${moduleAvailable(catalog, key) ? "可用" : "未安装或未启用"}`);
 }
@@ -213,6 +214,18 @@ async function renderConfiguration(context, target, refreshStatus) {
   );
   voiceStatus.id = "qq-voice-reply-status";
   form.append(voiceStatus);
+  const initialLifeForecast = configuration?.life_forecast_enabled === true;
+  let lifeForecastChanged = false;
+  const lifeForecastToggle = toggleInput(initialLifeForecast);
+  lifeForecastToggle.addEventListener("change", () => {
+    lifeForecastChanged = true;
+  });
+  appendField(form, "启用 QQ 生活预报查询", lifeForecastToggle);
+  form.append(element(
+    "p",
+    "仅响应菜单按钮和四个完整关键词，只读取当天本机缓存；不会刷新天气或增加定时推送。",
+    "hint",
+  ));
   const submit = element(
     "button",
     configuration?.configured ? "保存或替换配置" : "保存配置",
@@ -227,6 +240,9 @@ async function renderConfiguration(context, target, refreshStatus) {
     if (secret.value.trim()) payload.secret = secret.value.trim();
     if (capabilityChanged) payload.qq_media_upload_capability = capabilitySelect.value;
     if (voiceChanged) payload.reply_with_voice = voiceToggle.checked;
+    if (lifeForecastChanged) {
+      payload.life_forecast_enabled = lifeForecastToggle.checked;
+    }
     if (capabilityChanged && capabilitySelect.value !== "available") {
       payload.reply_with_voice = false;
     }

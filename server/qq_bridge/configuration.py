@@ -1,7 +1,7 @@
 """Owned, atomic storage for the QQ sidecar's persistent credentials.
 
 Only this PK-140 component interprets the two QQ credential fields and the
-non-secret voice-reply opt-in and operator capability declaration. Callers receive a finite configuration summary
+non-secret voice/life-forecast opt-ins and operator capability declaration. Callers receive a finite configuration summary
 and never receive either credential value.
 """
 
@@ -27,6 +27,7 @@ _TARGETS = (
     "QQBOT_SECRET",
     "QQBOT_REPLY_WITH_VOICE",
     "QQBOT_MEDIA_UPLOAD_CAPABILITY",
+    "QQBOT_LIFE_FORECAST_ENABLED",
 )
 _MAX_ENV_BYTES = 64 * 1024
 
@@ -50,6 +51,7 @@ class QQConfigurationSummary:
     voice_setting_valid: bool
     qq_media_upload_capability: str
     media_capability_valid: bool
+    life_forecast_enabled: bool
     restart_required: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -63,6 +65,7 @@ class QQConfigurationSummary:
             "voice_setting_valid": self.voice_setting_valid,
             "qq_media_upload_capability": self.qq_media_upload_capability,
             "media_capability_valid": self.media_capability_valid,
+            "life_forecast_enabled": self.life_forecast_enabled,
             "restart_required": self.restart_required,
         }
 
@@ -130,6 +133,9 @@ class QQBridgeConfigurationStore:
         ).strip().lower()
         media_capability_valid = raw_capability in _MEDIA_CAPABILITIES
         capability = raw_capability if media_capability_valid else "unknown"
+        raw_life_forecast = values.get(
+            "QQBOT_LIFE_FORECAST_ENABLED", "false"
+        ).strip().lower()
         return QQConfigurationSummary(
             configured=appid_ok and secret_ok,
             appid_configured=appid_ok,
@@ -144,6 +150,7 @@ class QQBridgeConfigurationStore:
             voice_setting_valid=voice_setting_valid,
             qq_media_upload_capability=capability,
             media_capability_valid=media_capability_valid,
+            life_forecast_enabled=raw_life_forecast == "true",
             restart_required=restart_required,
         )
 
@@ -169,6 +176,7 @@ class QQBridgeConfigurationStore:
         secret: str | None,
         reply_with_voice: bool | None = None,
         qq_media_upload_capability: str | None = None,
+        life_forecast_enabled: bool | None = None,
     ) -> dict[str, Any]:
         if reply_with_voice is not None and not isinstance(reply_with_voice, bool):
             raise QQConfigurationError("invalid_voice_setting")
@@ -177,6 +185,10 @@ class QQBridgeConfigurationStore:
             and qq_media_upload_capability not in _MEDIA_CAPABILITIES
         ):
             raise QQConfigurationError("invalid_media_capability")
+        if life_forecast_enabled is not None and not isinstance(
+            life_forecast_enabled, bool
+        ):
+            raise QQConfigurationError("invalid_life_forecast_setting")
         appid, secret = self._validate_update(appid, secret)
         with self._lock:
             text, existing = self._read()
@@ -204,6 +216,14 @@ class QQBridgeConfigurationStore:
                         "QQBOT_REPLY_WITH_VOICE", "false"
                     ).strip().lower() != "false"
                     values["QQBOT_REPLY_WITH_VOICE"] = "false"
+            if life_forecast_enabled is not None:
+                life_forecast_value = (
+                    "true" if life_forecast_enabled else "false"
+                )
+                changed = changed or life_forecast_value != existing.get(
+                    "QQBOT_LIFE_FORECAST_ENABLED", "false"
+                ).strip().lower()
+                values["QQBOT_LIFE_FORECAST_ENABLED"] = life_forecast_value
             summary = self._summary(values)
             if not summary.configured:
                 raise QQConfigurationError("configuration_incomplete")
@@ -218,6 +238,9 @@ class QQBridgeConfigurationStore:
                 ),
                 "QQBOT_MEDIA_UPLOAD_CAPABILITY": values.get(
                     "QQBOT_MEDIA_UPLOAD_CAPABILITY", "unknown"
+                ),
+                "QQBOT_LIFE_FORECAST_ENABLED": values.get(
+                    "QQBOT_LIFE_FORECAST_ENABLED", "false"
                 ),
             }
             seen: set[str] = set()

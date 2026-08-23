@@ -6,8 +6,11 @@ from typing import Callable, Optional
 from fastapi import APIRouter, HTTPException, Request
 
 from .legacy_adapter import DailyBriefingService
-from .models import BriefingGenerateRequest
-from .repository import BriefingCachePersistenceError
+from .models import BriefingGenerateRequest, LifeForecastProjectionUpdate
+from .repository import (
+    BriefingCachePersistenceError,
+    LifeForecastProjectionPersistenceError,
+)
 
 
 ServiceProvider = Callable[[], Optional[DailyBriefingService]]
@@ -40,11 +43,13 @@ def create_briefing_router(
 
     @router.get("/api/v1/briefing/today")
     async def read_today() -> dict:
-        value = service().core.read_today()
+        current = service()
+        value = current.core.read_today()
+        projection = current.core.life_forecast_projection()
         if value is None:
             return {
                 "ready": False,
-                "date": service().core.today().isoformat(),
+                "date": current.core.today().isoformat(),
                 "cached": False,
                 "cache_status": "unavailable",
                 "counts": {},
@@ -55,8 +60,34 @@ def create_briefing_router(
                 "script": "",
                 "generated": False,
                 "fallback": False,
+                "life_forecast": projection,
             }
-        return {"ready": True, **service().core.public_result(value)}
+        return {
+            "ready": True,
+            **current.core.public_result(value),
+            "life_forecast": projection,
+        }
+
+    @router.get("/api/v1/briefing/life-forecast-projection")
+    async def read_life_forecast_projection(request: Request) -> dict:
+        local_only(request)
+        return service().core.life_forecast_projection_configuration()
+
+    @router.put("/api/v1/briefing/life-forecast-projection")
+    async def update_life_forecast_projection(
+        request: Request,
+        update: LifeForecastProjectionUpdate,
+    ) -> dict:
+        local_only(request)
+        try:
+            return service().core.save_life_forecast_projection_configuration(
+                update
+            )
+        except LifeForecastProjectionPersistenceError as exc:
+            raise HTTPException(
+                status_code=500,
+                detail="生活预报投影设置保存失败，原设置保持不变",
+            ) from exc
 
     @router.get("/api/v1/briefing/generation-status")
     async def generation_status(request: Request) -> dict:

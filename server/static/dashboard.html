@@ -91,15 +91,40 @@
             展示 Project Kei 官方 GitHub Catalog 缓存中的受信模块版本。只有显式刷新目录才允许 Core 联网。
           </p>
         </div>
-        <button class="secondary" id="refresh-official-module-catalog" type="button">
-          刷新官方模块目录
-        </button>
+        <div class="module-management-heading-actions">
+          <button class="secondary" id="toggle-official-module-batch" type="button"
+                  aria-controls="official-module-batch-toolbar official-module-catalog"
+                  aria-pressed="false">批量选择</button>
+          <button class="secondary" id="refresh-official-module-catalog" type="button">
+            刷新官方模块目录
+          </button>
+        </div>
       </div>
       <div id="official-module-catalog-status" class="detail hint" role="status" aria-live="polite">
         等待读取本机目录缓存…
       </div>
+      <div id="official-module-batch-toolbar" class="official-module-batch-toolbar" hidden
+           role="group" aria-label="官方模块批量选择操作">
+        <strong id="official-module-batch-count" role="status" aria-live="polite">已选择 0 项</strong>
+        <div class="module-management-actions">
+          <button class="secondary" id="select-all-official-modules" type="button">全选兼容项</button>
+          <button class="secondary" id="cancel-official-module-batch" type="button">取消</button>
+          <button id="install-selected-official-modules" type="button" disabled>安装已选</button>
+        </div>
+      </div>
       <div id="official-module-install-confirmation" class="module-confirmation" hidden></div>
       <div id="official-module-catalog" class="module-catalog"></div>
+      <dialog id="official-module-batch-confirmation" class="module-management-dialog"
+              aria-labelledby="official-module-batch-confirmation-heading"
+              aria-describedby="official-module-batch-summary">
+        <strong id="official-module-batch-confirmation-heading">确认批量下载并安装</strong>
+        <p id="official-module-batch-summary" class="hint"></p>
+        <ol id="official-module-batch-list" class="official-module-batch-list"></ol>
+        <div class="module-management-actions">
+          <button type="button" data-confirm-official-batch>确认并依次安装</button>
+          <button type="button" class="secondary" data-cancel-official-batch-confirmation>取消</button>
+        </div>
+      </dialog>
     </section>
 
     <section class="module-management-group" aria-labelledby="installed-modules-heading">

@@ -20,6 +20,7 @@ function createHarness({
   focusEncouragements = null,
   now = () => Date.UTC(2030, 0, 2, 8, 0, 0),
   allowedUsers = new Set([USER]),
+  lifeForecastEnabled = false,
 } = {}) {
   const fetches = [];
   const qqCalls = [];
@@ -71,6 +72,73 @@ function createHarness({
       "/api/v1/calendar/status": { skills: [{ name: "虚构技能", total_hours: 12.5, level: { name: "练气" } }] },
       "/api/v1/calendar/events": { status: "ok", event: { title: "虚构备忘" } },
       "/api/v1/calendar/practice": { status: "ok", skill: { name: "虚构技能", total_hours: 13.5 } },
+      "/api/v1/life-forecast/today": {
+        cache_status: "available",
+        city: "must-not-leak",
+        provider: "must-not-leak",
+        forecast: {
+          provider: "must-not-leak",
+          local_date: "2030-01-02",
+          condition: "多云",
+          current_temperature_c: 16,
+          apparent_temperature_c: 15,
+          temperature_max_c: 20,
+          temperature_min_c: 11,
+          precipitation_probability_max_pct: 35,
+          wind_speed_max_kmh: 18,
+          uv_index_max: 4,
+          us_aqi: 42,
+          warnings_status: "available",
+          warnings: [{ title: "测试预警", severity: "低", description: "测试说明" }],
+          attribution: "must-not-leak",
+        },
+        life_advice: {
+          clothing: { status: "available", text: "带一件薄外套" },
+          travel_umbrella: { status: "available", text: "可带折叠伞", bring_umbrella: true },
+          uv: { status: "available", text: "适度防晒" },
+          air_quality: { status: "available", text: "适合通风" },
+        },
+        fortune: {
+          enabled: true,
+          date: "2030-01-02",
+          disclaimer: "娱乐内容、非事实预测",
+          focus: "整理",
+          color: "蓝色",
+          small_action: "收拾桌面",
+        },
+      },
+      "/api/v1/life-forecast/refresh": {
+        cache_status: "available",
+        forecast: {
+          local_date: "2030-01-02",
+          condition: "多云",
+          current_temperature_c: 16,
+          apparent_temperature_c: 15,
+          temperature_max_c: 20,
+          temperature_min_c: 11,
+          precipitation_probability_max_pct: 35,
+          wind_speed_max_kmh: 18,
+          uv_index_max: 4,
+          us_aqi: 42,
+          warnings_status: "available",
+          warnings: [{ title: "测试预警", severity: "低", description: "测试说明" }],
+        },
+        life_advice: {
+          clothing: { status: "available", text: "带一件薄外套" },
+          travel_umbrella: { status: "available", text: "可带折叠伞", bring_umbrella: true },
+          uv: { status: "available", text: "适度防晒" },
+          air_quality: { status: "available", text: "适合通风" },
+        },
+        fortune: {
+          enabled: true,
+          date: "2030-01-02",
+          disclaimer: "娱乐内容、非事实预测",
+          focus: "整理",
+          color: "蓝色",
+          small_action: "收拾桌面",
+        },
+        refresh_status: "refreshed",
+      },
     };
     return response(200, bodies[path] || { text: "conversation reply" });
   });
@@ -93,6 +161,7 @@ function createHarness({
     logger: { info() {}, warn() {}, error() {} },
     focusEncouragements,
     now,
+    lifeForecastEnabled,
   });
   return { handler, fetches, qqCalls, order };
 }
@@ -101,7 +170,7 @@ function outgoingMessages(qqCalls) {
   return qqCalls.filter(call => call.method === "POST" && call.path.includes("/messages"));
 }
 
-test("main menu exposes exactly five bounded features without business writes", async () => {
+test("main menu exposes the bounded life forecast entry without business writes", async () => {
   const harness = createHarness();
   await harness.handler.handleDispatch("C2C_MESSAGE_CREATE", {
     id: "menu-1",
@@ -115,7 +184,248 @@ test("main menu exposes exactly five bounded features without business writes", 
   assert.ok(rows.length <= 5);
   assert.ok(rows.every(row => row.buttons.length <= 5));
   const labels = rows.flatMap(row => row.buttons.map(item => item.render_data.label));
-  assert.deepEqual(labels, ["每日情报", "斩妖除魔", "健身打卡", "专注计时", "日历与修炼"]);
+  assert.deepEqual(labels, ["每日情报", "斩妖除魔", "健身打卡", "专注计时", "日历与修炼", "生活预报"]);
+});
+
+test("life forecast action and exact keywords are default-off with zero API", async () => {
+  const harness = createHarness();
+  await harness.handler.handleDispatch(
+    "INTERACTION_CREATE",
+    interaction("life-disabled-action", "kei:life-forecast"),
+  );
+  for (const [index, content] of [
+    "每日生活预报",
+    "今日生活预报",
+    "生活预报",
+    "今日天气预报",
+  ].entries()) {
+    await harness.handler.handleDispatch("C2C_MESSAGE_CREATE", {
+      id: `life-disabled-${index}`,
+      content,
+      author: { user_openid: USER },
+    });
+  }
+  assert.equal(harness.fetches.length, 0);
+  assert.equal(outgoingMessages(harness.qqCalls).length, 5);
+  assert.ok(outgoingMessages(harness.qqCalls).every(
+    call => call.body.markdown.content === "生活预报尚未开启",
+  ));
+});
+
+test("life forecast button refreshes once while four exact keywords remain cache-only", async () => {
+  const harness = createHarness({ lifeForecastEnabled: true });
+  await harness.handler.handleDispatch(
+    "INTERACTION_CREATE",
+    interaction("life-enabled-action", "kei:life-forecast"),
+  );
+  for (const [index, content] of [
+    "每日生活预报",
+    "今日生活预报",
+    "生活预报",
+    "今日天气预报",
+  ].entries()) {
+    await harness.handler.handleDispatch("C2C_MESSAGE_CREATE", {
+      id: `life-enabled-${index}`,
+      content,
+      author: { user_openid: USER },
+    });
+  }
+  assert.equal(harness.fetches.length, 5);
+  assert.deepEqual(
+    harness.fetches.map(call => ({
+      path: new URL(call.url).pathname,
+      method: call.options.method,
+      body: call.options.body,
+    })),
+    [
+      { path: "/api/v1/life-forecast/refresh", method: "POST", body: "{}" },
+      ...Array.from({ length: 4 }, () => ({
+        path: "/api/v1/life-forecast/today",
+        method: "GET",
+        body: undefined,
+      })),
+    ],
+  );
+  const outputs = outgoingMessages(harness.qqCalls).map(call => call.body.markdown.content);
+  assert.ok(outputs.every(value => value === outputs[0]));
+  for (const expected of [
+    "多云",
+    "当前温度：16°C",
+    "气温：11～20°C",
+    "体感温度：15°C",
+    "最高降水概率：35%",
+    "最大风速：18 km/h",
+    "最高紫外线指数：4",
+    "空气质量指数（US AQI）：42",
+    "测试预警",
+    "穿衣建议",
+    "出行与雨伞建议",
+    "紫外线建议",
+    "空气质量建议",
+    "娱乐内容、非事实预测",
+  ]) assert.ok(outputs[0].includes(expected));
+  for (const forbidden of ["must-not-leak", "provider", "city", "attribution"]) {
+    assert.ok(!outputs[0].includes(forbidden));
+  }
+});
+
+test("life forecast refresh action and cache-only keywords redact credentials, metadata, and local paths", async () => {
+  const markers = {
+    bearer: "PK241_FICTIONAL_BEARER_MARKER",
+    token: "PK241_FICTIONAL_TOKEN_MARKER",
+    apiKey: "PK241_FICTIONAL_API_KEY_MARKER",
+    cookie: "PK241_FICTIONAL_COOKIE_MARKER",
+    secret: "PK241_FICTIONAL_SECRET_MARKER",
+    city: "PK241_FICTIONAL_CITY_MARKER",
+    provider: "PK241_FICTIONAL_PROVIDER_MARKER",
+    attribution: "PK241_FICTIONAL_ATTRIBUTION_MARKER",
+    windowsPath: "PK241_FICTIONAL_WINDOWS_PATH_MARKER",
+    unixPath: "PK241_FICTIONAL_UNIX_PATH_MARKER",
+  };
+  const snapshot = {
+    cache_status: "available",
+    city: markers.city,
+    provider: markers.provider,
+    forecast: {
+      local_date: "2030-01-02",
+      provider: markers.provider,
+      attribution: markers.attribution,
+      condition: `Authorization: Bearer ${markers.bearer}`,
+      warnings_status: "available",
+      warnings: [{
+        title: `token=${markers.token}`,
+        severity: `api_key: ${markers.apiKey}`,
+        description: `cookie=${markers.cookie}; secret: ${markers.secret}`,
+      }],
+    },
+    life_advice: {
+      clothing: {
+        status: "available",
+        text: `本机 C:\\Users\\fictional\\${markers.windowsPath} 不得显示`,
+      },
+      travel_umbrella: {
+        status: "available",
+        text: `本机 /home/fictional/${markers.unixPath} 不得显示`,
+      },
+      uv: { status: "available", text: `Authorization=${markers.bearer}` },
+      air_quality: { status: "available", text: `api-key=${markers.apiKey}` },
+    },
+    fortune: { enabled: false },
+  };
+  const harness = createHarness({
+    lifeForecastEnabled: true,
+    fetchImpl: async () => response(200, snapshot),
+  });
+  await harness.handler.handleDispatch(
+    "INTERACTION_CREATE",
+    interaction("life-redaction-action", "kei:life-forecast"),
+  );
+  for (const [index, content] of [
+    "每日生活预报",
+    "今日生活预报",
+    "生活预报",
+    "今日天气预报",
+  ].entries()) {
+    await harness.handler.handleDispatch("C2C_MESSAGE_CREATE", {
+      id: `life-redaction-keyword-${index}`,
+      content,
+      author: { user_openid: USER },
+    });
+  }
+
+  assert.equal(harness.fetches.length, 5);
+  assert.deepEqual(
+    harness.fetches.map(call => `${call.options.method} ${new URL(call.url).pathname}`),
+    [
+      "POST /api/v1/life-forecast/refresh",
+      "GET /api/v1/life-forecast/today",
+      "GET /api/v1/life-forecast/today",
+      "GET /api/v1/life-forecast/today",
+      "GET /api/v1/life-forecast/today",
+    ],
+  );
+  const outputs = outgoingMessages(harness.qqCalls).map(call => call.body.markdown.content);
+  assert.equal(outputs.length, 5);
+  assert.ok(outputs.every(value => value === outputs[0]));
+  assert.ok(outputs.every(value => value.includes("[redacted]") && value.includes("[internal-path]")));
+  for (const output of outputs) {
+    for (const marker of Object.values(markers)) assert.ok(!output.includes(marker));
+    for (const forbidden of ["Bearer PK241", "C:\\Users\\fictional", "/home/fictional/"]) {
+      assert.ok(!output.includes(forbidden));
+    }
+  }
+});
+
+test("broad weather chat remains conversation and invalid life snapshots fail closed", async () => {
+  const broad = createHarness({ lifeForecastEnabled: true });
+  for (const [index, content] of ["天气不错", "聊聊天气"].entries()) {
+    await broad.handler.handleDispatch("C2C_MESSAGE_CREATE", {
+      id: `weather-chat-${index}`,
+      content,
+      author: { user_openid: USER },
+    });
+  }
+  assert.deepEqual(
+    broad.fetches.map(call => new URL(call.url).pathname),
+    ["/api/v1/conversation", "/api/v1/conversation"],
+  );
+
+  const snapshots = [
+    { cache_status: "missing", forecast: null, life_advice: null, fortune: null },
+    { cache_status: "available", forecast: { local_date: "2029-12-31" }, life_advice: {}, fortune: null },
+    { cache_status: "available", forecast: "invalid", life_advice: {}, fortune: null },
+  ];
+  let index = 0;
+  const invalid = createHarness({
+    lifeForecastEnabled: true,
+    fetchImpl: async () => response(200, snapshots[index++]),
+  });
+  for (const [messageIndex, content] of ["生活预报", "今日生活预报", "今日天气预报"].entries()) {
+    await invalid.handler.handleDispatch("C2C_MESSAGE_CREATE", {
+      id: `life-invalid-${messageIndex}`,
+      content,
+      author: { user_openid: USER },
+    });
+  }
+  assert.equal(invalid.fetches.length, 3);
+  assert.ok(invalid.fetches.every(call => !call.url.includes("refresh")));
+  assert.ok(outgoingMessages(invalid.qqCalls).every(
+    call => call.body.markdown.content === "今日生活预报暂不可用",
+  ));
+});
+
+test("life forecast refresh failure does not fall back to cached or stale data", async () => {
+  const harness = createHarness({
+    lifeForecastEnabled: true,
+    fetchImpl: async (url, options = {}) => {
+      assert.equal(new URL(String(url)).pathname, "/api/v1/life-forecast/refresh");
+      assert.equal(options.method, "POST");
+      return response(503, { detail: "fictional upstream body must not appear" });
+    },
+  });
+  await harness.handler.handleDispatch(
+    "INTERACTION_CREATE",
+    interaction("life-refresh-failure", "kei:life-forecast"),
+  );
+  assert.equal(harness.fetches.length, 1);
+  assert.equal(outgoingMessages(harness.qqCalls).length, 1);
+  assert.equal(
+    outgoingMessages(harness.qqCalls)[0].body.markdown.content,
+    "生活预报刷新失败，请稍后重试",
+  );
+  assert.ok(!outgoingMessages(harness.qqCalls)[0].body.markdown.content.includes("fictional"));
+});
+
+test("duplicate life forecast interaction refreshes at most once", async () => {
+  const harness = createHarness({ lifeForecastEnabled: true });
+  const duplicate = interaction("life-refresh-duplicate", "kei:life-forecast");
+  await harness.handler.handleDispatch("INTERACTION_CREATE", duplicate);
+  await harness.handler.handleDispatch("INTERACTION_CREATE", duplicate);
+  assert.deepEqual(
+    harness.fetches.map(call => `${call.options.method} ${new URL(call.url).pathname}`),
+    ["POST /api/v1/life-forecast/refresh"],
+  );
+  assert.equal(outgoingMessages(harness.qqCalls).length, 1);
 });
 
 test("all business main buttons only open bounded submenus and make no API request", async () => {

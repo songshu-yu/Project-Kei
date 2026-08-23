@@ -5112,3 +5112,493 @@ PK-020、PK-030 继续“待集成”，PK-900 继续“进行中”，不发布
   `52767f2d81f92cf0d474ea5e0f9f7f4f4985caffb687ffa6c759e24114a936a8`；Catalog 规范 manifest
   SHA-256 为 `7c6768a2128ceedb1128969d629d12e55055c3fe54b6cb629d9b8c03835f63ed`。
 - 16 项包清单与安全扫描范围不变，禁止内容命中仍为 0；后续远端 Release 与 Catalog 必须使用本节最终摘要。
+
+## PK-241 每日生活预报消费端联动独立验收（2026-08-20）
+
+### 结论与状态
+
+- **不通过。** PK-110 的只读投影、默认关闭与十一项严格字段，PK-140 的默认关闭、固定 action、四个
+  精确关键词及零 scheduler 主体均已成立；但 QQ 生活预报的结构化文本清洗存在一处可独立复现的凭证
+  残留，违反本批“秘密不得扩散”的明确完成标准。
+- PK-241 保持“待集成”，PK-900 保持“进行中”。本轮只追加验收报告，未修改产品、`TASKS.md`、
+  PK-241 状态、Catalog 或其他任务文件；由 PK-000 将下述最小整改退回 PK-241 后再复验。
+
+### 阻断证据、归属与最小整改
+
+1. **PK-241 / PK-140 消费端 P1：`Authorization: Bearer <secret>` 会残留 Bearer 值。**
+   独立直接调用正式 `createBusinessMenuController()`，让唯一固定 today Provider 返回
+   `forecast.condition="Authorization: Bearer PK241_FICTIONAL_BEARER_MARKER"`，再通过固定
+   `kei:life-forecast` action 格式化；实际结果为
+   `天气：Authorization=[redacted] PK241_FICTIONAL_BEARER_MARKER`，断言
+   `marker_leaked=true`。该虚构 marker 已进入最终 QQ markdown。
+2. 根因位于 `server/qq_bridge/src/business_menu.mjs:75-83`：`safeVisible()` 先执行通用
+   `authorization ... [^\s,;]+` 替换，只消费了单词 `Bearer`，随后 Bearer 专用正则已看不到
+   `Bearer <secret>` 组合，因而秘密值留在输出。`safeMultiline()` 的同序替换也有相同结构风险，
+   但本次确定阻断由生活预报的 `safeVisible()` 路径直接触发。
+3. 最小整改归 PK-241 的 QQ 消费格式化接缝：调整清洗顺序或让 assignment 规则完整消费可选 Bearer
+   scheme 与后续值，保证 `Authorization: Bearer value`、`Authorization=value`、`Token=value` 等均不
+   残留；在 `server/qq_bridge/tests/business_menu.test.mjs` 增加生活预报正式 action/关键词输出的永久
+   marker 逆向，断言原值、scheme 组合、城市、Provider、attribution、路径均不出现。无需修改 PK-240、
+   action、关键词、API、scheduler、包边界或配置 schema。
+
+### 已通过的独立契约与逆向检查
+
+- PK-110：总开关关闭时 Provider 调用为 0；配置不存在时总开关及 11 项全部 false；严格 Pydantic
+  模型拒绝缺字段、额外字段和整数冒充 bool。开启后每次 today 请求只捕获一次 fake Provider，按选中
+  字段投影，跨天、missing/corrupted、异常 Provider 和结构异常均返回空/不可用；briefing 原缓存字节
+  不变，没有 Collector、generate、refresh、conversation 或 voice 调用。
+- PK-110 输出只接受 `cache_status/forecast/life_advice/fortune` 四个顶层业务字段；独立恶意快照中的
+  city、Provider、attribution、时区、坐标与路径不进入投影。fortune 仅在 PK-240 `enabled=true`、日期为
+  当天、免责声明精确为“娱乐内容、非事实预测”且 PK-110 `fortune=true` 时出现。
+- 投影配置保存使用临时目录、唯一临时文件、flush/fsync 与原子替换；replace 失败（包括目标替换后再
+  抛错）恢复旧字节，损坏/未知 schema 的 GET 全关且不改旧文件，同一正式 repository 的 8 路并发保存
+  留下完整 schema 且无临时残留。额外构造两个独立 repository 实例并发写同一 Windows 路径时，部分
+  调用会以有限 `life_forecast_projection_save_failed` 失败，但最终文件保持完整合法且无残留；生产装配
+  每个 app 只有一个受锁 repository/service，因此此额外压力不作为本批阻断，也未掩盖结果。
+- PK-140：菜单 action 固定为 `kei:life-forecast`，四个完整关键词为“每日生活预报 / 今日生活预报 /
+  生活预报 / 今日天气预报”；关闭时 action 与关键词均零 API。开启时每次只调用一次固定
+  `GET /api/v1/life-forecast/today`；“天气”“天气不错”“聊聊天气”“明日天气预报”“生活预报一下”均不
+  被消费端截获。action 与四关键词进入同一 handler，跨日、missing 和非法结构固定降级，调用路径中无
+  refresh、任意 URL/method 或 scheduler。
+- QQ 配置沿用既有原子 `.env` store，只新增非秘密 `QQBOT_LIFE_FORECAST_ENABLED`，缺失默认 false；
+  路由只接受真实 bool 并转发同一 facade。保存失败保持旧字节；测试全部使用临时 env，未读取真实值。
+
+### 实际回归、构建与质量门禁
+
+- 根 `scripts/python.ps1` 解析到当前 `.venv`，但该环境没有 pytest，故第一次正式命令以
+  `No module named pytest` 退出；随后使用既有隔离 Python 3.12.7/pytest 8.3.3，不安装或修改环境：
+  - PK-241、daily module/generation-status/summary-cache/installable、qq-control 合并：`36 passed`；
+  - PK-240 life forecast 与 feature catalog：`18 passed`；
+  - QQ configuration/installable `unittest`：`30 passed`。
+- QQ Node 全量：`148 passed, 0 failed`；其中默认关闭、固定 action/关键词、宽泛天气旁路、无效快照、
+  Gateway/白名单/去重/scheduler/语音等既有回归均通过。现有测试未覆盖上述
+  `Authorization: Bearer <marker>` 作为生活预报结构化字段的组合，因此全绿不能覆盖独立阻断。
+- 两个系统临时目录分别双构建：
+  - `daily-briefing-1.0.3.zip` 两份字节一致，`145148` bytes，SHA-256
+    `25335e3c51d8d7cf690a3aaf620164de6f7a11d6ca50c17a2f9ff26689636d9f`，16 项；
+  - `qq_bridge-0.1.25.zip` 两份字节一致，`172002` bytes，SHA-256
+    `86af63306b924ef752d6511a511b55cc5facb96c9c18c5bd86e9002a8363eb7d`，16 项；
+  - 二者版本/release tag 均与 `modules-2026.08.19` 元数据一致；包内 `.env`、data/runtime、cache、
+    node_modules、vendor、models、绝对路径命中均为 0。包确定性通过不消除运行时文本泄漏阻断。
+- 10 个相关 Python 文件 `py_compile` 通过；daily/QQ 两个动态面板及三个相关 MJS `node --check` 通过；
+  文档门禁通过 `30 gated task(s)`；范围 `git diff --check` 退出 0，仅有既有 LF→CRLF 提示。
+- `test_dashboard_shell.py` 为 `5 passed, 2 failed`：一项是混合工作区未集成 learning manifest 令实际
+  21 对冻结预期 20；另一项是默认测试保护钩在 import production app 时拒绝访问受保护
+  `server/runtime/module-dependencies`。Python inventory 只报告另一任务未登记的
+  `test_learning_module.py`。这些属于 PK-100/PK-230/共享测试隔离接缝，按用户要求不纳入 PK-241
+  整改，也不用于覆盖本批确定的 QQ 脱敏阻断。
+
+### 数据隔离与工作区排除
+
+- 所有新增验证只使用纯内存 fake、ASGITransport、固定时钟和系统临时目录；未启动真实 QQ、Gateway、
+  Core、天气、Collector、LLM、TTS 或外部服务，未联网或发送消息。
+- 未读取、打印、diff、复制或修改真实生活预报缓存、daily briefing 缓存、`.env`、QQ data/runtime、
+  `server/runtime` 内容、个人状态、模型或 `vendor/`；未触碰 PK-100 正在进行的模块中心实现。
+- 混合工作区中的 learning、robot、PK-100、个人 `demon_slayer.json`/`focus_timer.json`、runtime、vendor
+  及其他无关差异全部保留。未执行 Git 暂存、提交、推送、发布、分支切换或清理。
+
+### 本轮文档门禁
+
+- [x] TASK_RECORD — 本节记录范围、确定阻断、最小整改、通过项、命令结果、构建与隔离。
+- [x] TASKS_BOARD — 未修改；PK-241“待集成”，PK-900“进行中”。
+- [x] PUBLIC_README — 已核对当前用户可见默认关闭/只读行为；候选不通过，不做额外发布文档修改。
+- [x] MODULE_CATALOG — 已核对两个候选版本与 release 元数据；共享 Catalog/发布不在本轮执行。
+- [x] ARCHITECTURE_DOCS — 已核对只读 Provider、字段投影、关键词/action 与零 refresh/scheduler 边界。
+- [x] LOCAL_README — 未修改或输出本机私有配置；无本机路径/端口变化。
+- [x] AGENT_RULES — 遵守保护数据、混合工作区、临时目录、外部能力及 Git 边界。
+- [ ] VALIDATION — 主体回归、构建和静态门禁已执行，但 QQ Bearer 值泄漏永久回归尚未关闭，故本批
+  不得通过。
+
+## PK-241 Bearer 脱敏整改后独立复验（2026-08-20）
+
+### 结论与状态
+
+- **通过（整改后源码与本地安装包候选）**。上一轮唯一确定阻断已关闭：生活预报最终 QQ markdown 中
+  `Authorization: Bearer <value>` 不再残留 Bearer 值；固定 action 与四个精确关键词走同一只读路径，宽泛
+  天气聊天继续旁路到 conversation。
+- PK-241 继续保持“待集成”，PK-900 继续保持“进行中”。本轮只追加本报告，未修改产品、`TASKS.md`、
+  PK-241 状态、公共 Catalog 或发布元数据；最终状态与发布仍交由 PK-000 串行决定。
+
+### 独立逆向与差异复核
+
+- 实际 diff 与交回范围一致：`business_menu.mjs` 的 `safeVisible()`、`safeMultiline()` 仅把 assignment
+  规则收紧为完整消费可选 Bearer scheme 及其值；正式测试新增最终 QQ markdown marker 逆向；PK-241
+  任务记录追加整改事实。未发现 action、关键词、PK-240 Provider、配置 schema、scheduler、Gateway、
+  语音或其他业务被顺带改写。
+- 不使用实现方夹具，直接构造正式 `createBusinessMenuController()`：在 condition、warning、四类 advice
+  字段中分别注入虚构 Authorization Bearer、token、API key、cookie、secret 及 Windows/Unix 路径；固定
+  `kei:life-forecast` 与“每日生活预报 / 今日生活预报 / 生活预报 / 今日天气预报”五条路径输出逐字一致，
+  Provider 恰好调用 5 次，所有秘密及路径 marker 均消失并出现固定 `[redacted]` / `[internal-path]`。
+  “天气不错”“聊聊天气”均 `handled=false`，额外 Provider 调用为 0。
+- 正式永久回归 `node --test tests/business_menu.test.mjs` 为 `30 passed`，其中新增测试覆盖固定 action、四个
+  关键词、Bearer、token/API key/cookie/secret、city/provider/attribution 及两类本机路径；跨天、缺失、
+  损坏与结构非法快照仍 fail closed。
+
+### 实际回归与质量门禁
+
+- `node --test tests/*.test.mjs`：`149 passed, 0 failed`；QQ 配置/安装包
+  `python -m unittest qq_bridge.tests.test_configuration_panel qq_bridge.tests.test_installable_package`：
+  `30 passed`；`pytest tests/test_qq_control.py -q`：`8 passed`。
+- `pytest tests/test_life_forecast_consumers.py -q`：`2 passed`；合并重跑 PK-241、daily
+  module/generation-status/summary-cache/installable 与 feature catalog：`29 passed`。所有配置、Provider、
+  HTTP 与时钟均为 fake/临时路径。
+- `business_menu.mjs`、`bridge_core.mjs`、`index.mjs` 的 `node --check` 通过；13 个相关 Python 文件以隔离
+  Python 3.12.7 和系统临时 pycache 执行 `py_compile` 通过；`scripts/check_task_docs.py` 输出
+  `task documentation gate passed: 30 gated task(s)`；三处整改文件的 scoped `git diff --check` 退出 0，
+  仅报告既有 LF→CRLF 提示。
+- 首次误按 pytest 文件名执行 QQ configuration/installable 时，两个文件不存在并以“no tests ran”退出；
+  未计入通过证据。随后依据任务登记改用上述真实 `unittest` 入口并取得 30/30，避免用错误入口冒充结果。
+
+### 安装包候选、风险与隔离
+
+- 因 `business_menu.mjs` 属于 QQ 包源码，未沿用修复前摘要；在两个系统临时目录重新构建
+  `qq_bridge-0.1.25.zip`，两份字节一致，均为 `172030` bytes，SHA-256
+  `6212581c830c5f650db6fa0c02323bde4e035e3cb289ac4fb55ed48a29cb3f11`；源 manifest SHA-256
+  `84bc677cb965ce12009bba1158e5821cf54fa8f6db6269a5ca2802e41da69a27`，恰好 16 项，`.env`、data/runtime、
+  cache、node_modules、vendor、models 与绝对项名命中为 0。上一轮修复前的 `172002` bytes / `86af6330…`
+  只保留为历史证据，不得用于发布修复后的候选；PK-000 发布时应采用本节新摘要并完成 Catalog 串行收口。
+- 未读取、打印、diff、复制或修改真实生活预报缓存、daily briefing 缓存、`.env`、QQ data/runtime、
+  `server/runtime`、个人状态、模型或 `vendor/`；未启动真实 Core、QQ、Gateway、天气、Collector、LLM、
+  TTS，未联网或发送消息。混合工作区的 PK-100、learning、robot、个人状态及其他任务差异均排除并保留；
+  未执行 Git 暂存、提交、推送、发布、切换或清理。
+
+### 本轮文档门禁
+
+- [x] TASK_RECORD — 已记录整改差异、独立逆向、实际命令、回归、新包摘要、风险与隔离。
+- [x] TASKS_BOARD — 未修改；PK-241“待集成”，PK-900“进行中”。
+- [x] PUBLIC_README — 本轮没有新增用户契约；既有默认关闭与只读说明未被改写。
+- [ ] MODULE_CATALOG — 本轮不修改共享 Catalog；修复后 QQ ZIP 新摘要交由 PK-000 发布时串行收口。
+- [x] ARCHITECTURE_DOCS — 只读 Provider、精确 action/关键词、零 refresh/scheduler 边界未变。
+- [x] LOCAL_README — 未读取、修改或输出本机私有配置。
+- [x] AGENT_RULES — 遵守临时目录、保护数据、混合工作区、外部能力与 Git 写入边界。
+- [x] VALIDATION — 原阻断独立复现已转为通过，正式 Node/Python、静态、文档、diff 与双构建门禁均有实证。
+
+## PK-100 官方目录与本机 registry 版本归并独立验收（2026-08-20）
+
+### 结论与状态
+
+- **不通过。** 普通 SemVer、状态矩阵、唯一 update 路由、二次确认、批量 install 隔离、操作后双 GET
+  恢复、ARIA 与移动端主体均成立；但实际源码存在两个可稳定复现的 PK-100 阻断：registry 归并没有
+  严格使用 `module_id`，以及合法大整数 SemVer 与 Core 比较结果不一致。
+- PK-100 保持“待集成”，PK-900 保持“进行中”。本轮只追加验收记录，未修改产品、`TASKS.md`、
+  PK-100 状态、PK-230 清单、Catalog 或其他任务文件；下述最小整改应退回 PK-100。
+
+### 阻断证据、责任与最小整改
+
+1. **P1 — registry 关联错误地优先使用 `key`，违反以 `module_id` 精确归并。**
+   `server/static/dashboard/module-management.js:193-195` 的 `moduleId()` 返回
+   `key || module_id`，`reconcileOfficialModules()` 又在约第 330 行用该结果建立 `installedById`。
+   独立构造官方 `module_id=alpha` 与本机记录 `key=wrong,module_id=alpha`，正式归并结果为
+   `install`，错误展示“下载并安装”；反向构造 `key=alpha,module_id=beta`，结果为 `installed`，把另一个
+   module_id 误当作已安装。两例均不涉及名称、label、文件名或真实 registry。
+2. **P1 — JavaScript `Number` 破坏 Core 支持的任意精度版本顺序。**
+   `parseControlledSemver()` 在约第 162 行把三段主版本转为 `Number`，数值 prerelease 也在约第 187 行
+   用 `Number()` 比较；Core `server/core/modules/manifest.py:195-224` 使用 Python 任意精度整数。
+   对合法输入 `9007199254740992.0.0` 与 `9007199254740993.0.0`，Core 返回 `-1`、前端返回 `0`；对
+   `1.0.0-9007199254740992` 与 `1.0.0-9007199254740993`，Core 返回 `-1`、前端返回 `1`。因此本机旧版
+   可能被误判为同版或较新，导致合法 update 按钮缺失，不能声称与 Core `compare_semver()` 一致。
+3. 最小整改仅限 PK-100 的前端归并和永久测试：`reconcileOfficialModules()` 建表时只接受 registry
+   记录的精确、非空 `module_id`，不得用 `key`/name/label 回退；同 ID 的冲突记录应 fail closed。
+   数字段使用 `BigInt` 或十进制字符串长度/字典序实现 Core 同序比较，数值 prerelease 同样不得经过
+   `Number`。增加上述四个正反夹具，并保留普通 `1.0.0`、prerelease、build metadata 与非法版本用例。
+   不需修改 PK-010 API、Core SemVer、Catalog、PK-230 或生命周期后端。
+
+### 已通过的独立契约与逆向
+
+- 普通版本矩阵独立通过：`1.0.0 == 1.0.0`、`alpha < release`、数值 prerelease `2 < 10`、数字标识符
+  小于字符串标识符、字符串字典序、build metadata 不改变优先级；`1.0`、前导零主版本、空 build、`v`
+  前缀均抛错。普通状态矩阵中未安装/install、同版/installed、本机旧版/update、本机新版/local_newer、
+  不兼容/incompatible、local_import/source_conflict、多官方版本唯一最高 update 和“更高版本不兼容但
+  较低兼容版本可更新”均得到预期结果。
+- 更新请求独立确认唯一为
+  `POST /api/v1/modules/old/update-official`，body 精确为
+  `{"version":"1.1.0","confirmation":"old@1.1.0"}`；未走 install-official。批量计划只包含真正
+  未安装项，同版项被排除；普通页面、版本比较、选择和确认弹窗前均未产生 POST。
+- 源码核对 `runOfficialOperation()`：成功后按顺序先 GET `/api/v1/modules`，再 GET
+  `/api/v1/modules/official-catalog`；两个失败分支均经 `finally/recoverOfficialModuleState()` 离开 busy
+  状态。HTML/JS 正式专项覆盖成功收敛与二次 GET 失败恢复并通过。
+
+### Browser fake、回归与共享门禁
+
+- 按 Browser 技能启动纯 fake FastAPI 预览（首次 8765 已被其他本机进程占用，未探测或终止该进程；
+  改用 18765/18766），未连接真实 Core/registry/GitHub。模块中心展开后，同版卡为禁用“已安装”，未安装
+  卡为“下载并安装”；批量依赖缺失明确显示“未发送任何安装请求”。选择合法单项后确认按钮自动聚焦，
+  dialog 具有 `aria-labelledby/aria-describedby`，Escape 关闭；375px viewport 下
+  `window.innerWidth=375`、`clientWidth=scrollWidth=360`，无横向溢出。fake audit 中 POST 为 0。
+- 批量切换与确认控件均为原生 button/checkbox，ARIA 状态和焦点可见。in-app Browser 的 locator 与
+  DOM 键盘注入在 `activeElement` 已为 toggle 时仍未触发浏览器原生 Enter/Space 默认动作，因此本环境
+  只确认了原生语义、焦点、ARIA 与 Escape，未把该输入注入限制冒充完整键盘激活实证；现有正式 JS
+  契约测试通过。该限制不覆盖上方两个确定产品阻断。
+- `check_html_contract()` 与 `check_javascript_contract()` 通过；完整
+  `test_dashboard_shell.py` 在 `check_manifest_inventory()` 精确停止。独立重算为实际 21、冻结
+  `INSTALLABLE_MODULE_IDS` 20，唯一额外项 `learning`、缺失 0，确认归属 PK-230/共享清单；未越权修改。
+- `pytest tests/test_official_module_catalog.py tests/test_installable_modules.py -q`：`22 passed`；
+  `module-management.js` `node --check` 通过；Dashboard/Core 三个 Python 文件以系统临时 pycache
+  `py_compile` 通过；`scripts/check_task_docs.py` 输出 `30 gated task(s)`；PK-100 五文件 scoped
+  `git diff --check` 退出 0，仅有 LF→CRLF 提示。
+- 两次以 `importlib` 单独调用 Dashboard 检查时，首次因未把 `server/tests` 加入 `sys.path` 而在导入
+  `_path_setup` 前失败，未计作产品结果；修正为测试脚本真实搜索路径后 HTML/JS 通过、manifest 按上述
+  PK-230 差异失败，证据未被掩盖。
+
+### 数据隔离与文档门禁
+
+- 未读取、打印、diff、复制或修改真实 registry、`server/runtime`、个人状态、缓存、`.env`、秘密、模型
+  或 `vendor/`；未安装/更新真实模块，未访问 GitHub，未启动真实 Core 或业务服务。fake 预览已正常停止，
+  临时浏览器 viewport 已恢复、测试页已关闭；未执行 Git 暂存、提交、推送、发布、切换或清理。
+- [x] TASK_RECORD — 本节记录两个阻断、通过项、Browser 限制、共享门禁、命令与隔离。
+- [x] TASKS_BOARD — 未修改；PK-100“待集成”，PK-900“进行中”。
+- [x] PUBLIC_README — 本轮只验收现有契约，未修改用户行为或公开文档。
+- [x] MODULE_CATALOG — 未读取远端或修改 Catalog；只使用内存 fake 条目。
+- [x] ARCHITECTURE_DOCS — 已对照 PK-010/Core SemVer 与官方生命周期边界，未改变架构。
+- [x] LOCAL_README — 未修改或输出本机私有配置。
+- [x] AGENT_RULES — 遵守保护数据、混合工作区、Browser、本地 fake 与 Git 边界。
+- [ ] VALIDATION — 普通矩阵与门禁已执行，但 module_id 精确关联和任意精度 SemVer 两项未通过。
+
+## PK-100 两项 P1 整改后聚焦独立复验（2026-08-20）
+
+### 结论与状态
+
+- **不通过。** 上轮两个直接错误已关闭：官方归并已严格使用 registry `module_id`，大整数 SemVer 已与
+  Core 正反序一致且 BigInt 缺失时 fail closed；但同一 module_id 的冲突结果仍保留“第一条”记录，产生
+  明确输入顺序依赖。此外 PK-100 Browser preview 未同步 `module_id`，本轮实际页面无法复现任务记录
+  声称的同版“已安装”卡。
+- PK-100 保持“待集成”，PK-900 保持“进行中”。本轮未修改产品、`TASKS.md`、PK-100、PK-230 或
+  Catalog；以下两项最小整改继续归 PK-100。
+
+### 已关闭的原始阻断
+
+- 独立正式归并得到：官方 alpha + `key=wrong,module_id=alpha` 为 `installed`；
+  `key=alpha,module_id=beta` 不误关联，官方 alpha 为 `install`。空值、`Alpha`、`alpha/evil`、null 和
+  缺失 module_id 均不借助 key/name/label 回退，alpha 保持 `install`；单条合法 alpha 为 `installed`。
+  旧生命周期 `allowedLifecycleActions()` 仍可使用 legacy key，兼容路径未被严格归并改写。
+- SemVer 独立交叉结果与 Core 完全一致：大整数主版本正反序 `-1/1`，大整数数值 prerelease 正反序
+  `-1/1`，不同 build metadata 为 `0`；普通 prerelease、数字/字符串标识符规则继续通过。主版本任一段
+  前导零、缺段、`v` 前缀与空 build 均抛错；临时把 `globalThis.BigInt` 设为 undefined 时比较直接抛错，
+  未回退 `Number/parseInt`。
+
+### 剩余阻断、证据与最小整改
+
+1. **P1 — duplicate registry conflict 的完整结果仍依赖输入顺序。**
+   `indexInstalledRegistry()` 在 `server/static/dashboard/module-management.js:332-345` 标记 conflict，
+   但仍把第一条合法记录保存到 `records`；`reconcileOfficialModules()` 最终在约第 445 行把该记录作为
+   `local_module` 返回。用同 ID 的 `first@1.0.0` 与 `second@0.9.0` 正反排列，两边状态均为
+   `registry_conflict` 且 batch 均以 `batch_selection_stale` 拒绝，零 install/update；但正序返回并展示
+   `local_module=first@1.0.0`，反序返回 `second@0.9.0`，`full_equal=false`。这违反本轮“正反输入结果应
+   一致”，并让冲突卡的“本机版本”随 registry 顺序变化。
+   **最小修复：** conflict ID 不得向归并结果暴露任一候选记录；冲突时 `local_module` 固定为 null（或固定
+   的无候选冲突摘要），并在计算版本/来源/action 前短路。永久测试必须使用不同 key/版本的两条记录，
+   对完整公开结果做正反序等价断言，而不是继续使用两条完全相同的 fixture。
+2. **P1 验收夹具 — Browser preview 不符合严格 registry 契约。**
+   `server/tests/test_dashboard_shell.py:810` 的 `_module_record()` 只返回 `key`，不返回 `module_id`。
+   严格归并正确忽略这些记录，故本轮真实 Browser fake 中 `sameDisabled=false`：没有任何禁用“已安装”官方
+   卡，尽管任务记录声称同版卡已验证；仍有未安装按钮，但无法验收“普通合法单条不会误判”。生产
+   ModuleManager `_describe()` 确实返回 `module_id`，所以不得回退产品到 key。
+   **最小修复：** 仅让 preview 的 managed registry fixture 返回与生产 API 一致的精确 `module_id`，并
+   增加 Browser/DOM 断言同版卡禁用、批量排除；不修改 PK-010 API、生产归并或 PK-230 清单。
+
+### 其余矩阵、Browser 与质量门禁
+
+- 未安装/同版/可更新/本机较新/不兼容/非官方来源/多版本唯一目标/更高不兼容且较低兼容矩阵全部通过；
+  update 唯一调用 `/api/v1/modules/older/update-official`，确认体精确；批量只包含 fresh install，冲突项
+  无法进入计划；恢复状态机通过。`check_html_contract()` 与 `check_javascript_contract()` 通过。
+- Browser 技能仅连接 18768 fake preview：375px 下 `clientWidth=scrollWidth=360`，零横向溢出；批量
+  dialog 正确 `aria-labelledby/aria-describedby`、确认按钮自动聚焦、Escape 关闭；页面加载、展开、选择、
+  打开/取消确认后 fake audit `post_count=0`，未访问 GitHub。上述同版卡缺失证据来自实际 DOM，不接受
+  实现方旧结论。fake 服务已停止，viewport 已恢复，临时 tab 已关闭。
+- Core/API 回归 `22 passed`；`module-management.js` `node --check`、三个相关 Python 文件临时 pycache
+  `py_compile`、30 项文档门禁、三文件 scoped `git diff --check` 均通过。
+- 完整 `test_dashboard_shell.py` 仍精确停止在 manifest inventory；独立重算 actual 21 / expected 20，
+  unexpected 仅 `learning`、missing 0，继续归属 PK-230/共享清单，未让 PK-100 越权修改。
+
+### 隔离与文档门禁
+
+- 所有归并、版本、API 和 Browser 检查使用内存 fake、隔离解释器或本机临时预览；未读取/打印/diff
+  真实 GitHub、registry、`server/runtime`、个人状态、缓存、秘密、模型或 vendor，未安装/更新真实模块，
+  未执行 Git 暂存、提交、推送、发布、切换或清理。
+- [x] TASK_RECORD — 本节记录原阻断关闭证据、两项剩余阻断、Browser、命令与隔离。
+- [x] TASKS_BOARD — 未修改；PK-100“待集成”，PK-900“进行中”。
+- [x] PUBLIC_README — 本轮未改变用户契约或文档。
+- [x] MODULE_CATALOG — 未访问远端或修改 Catalog。
+- [x] ARCHITECTURE_DOCS — 未改变 PK-010/Core 生命周期或数据所有权。
+- [x] LOCAL_README — 未修改或输出本机私有配置。
+- [x] AGENT_RULES — 遵守混合工作区、保护数据、Browser、本地 fake 与 Git 边界。
+- [ ] VALIDATION — 原两项直接夹具通过，但 duplicate 顺序独立性和生产等价 Browser fixture 尚未关闭。
+
+## PK-100 第二次最小收口后聚焦独立复验（2026-08-20）
+
+### 结论与状态
+
+- **通过（本次 PK-100 累计候选的第二次最小收口）。** 上轮两个剩余 P1 均已关闭：重复
+  `module_id` 的冲突结果不再暴露任一候选记录且与输入顺序无关；Dashboard preview 的 managed
+  registry 记录已显式提供生产契约 `module_id`，实际 Browser fake 中同版卡正确收敛为“已安装”。
+- PK-100 继续保持“待集成”，PK-900 继续保持“进行中”，交由 PK-000 做最终关闭。本轮未修改
+  `TASKS.md`、PK-100、PK-230、产品代码、Catalog 或公开文档。
+
+### 冲突确定性、身份与版本逆向
+
+- 使用与正式夹具不同的两条 alpha 记录独立重放：两条均为 `module_id=alpha`，但 key 分别为
+  `first-key`/`second-key`、版本为 `8.8.8`/`7.7.7`、label 与 package source 也各不相同。正反顺序的
+  `reconcileOfficialModules()` 完整公开结果 `deepEqual`；两边均为 `registry_conflict`、
+  `local_module=null`，序列化结果不含任一候选 key/version/label/source。两个顺序的 batch plan 均以
+  `batch_selection_stale` 拒绝，零 install/update、零批量候选。单条合法 alpha（即使 key 不同）仍为
+  `installed`，未被误判冲突。
+- `key=wrong,module_id=alpha` 正确关联；`key=alpha,module_id=beta` 不误关联；空、大小写错误及 traversal
+  形式的 module_id 均被忽略且不回退 key/name/label。正式 preview `_module_record()` 已显式返回
+  `module_id`，产品未恢复 key fallback，旧生命周期卡仍可继续使用自己的 key。
+- 任意精度 SemVer 独立复验通过：超大主版本与超大数值 prerelease 正反序均为 `-1/1`，build metadata
+  相等，主版本三段前导零、缺段和 `v` 前缀 fail closed；移除 `BigInt` 后直接拒绝，未回退
+  `Number/parseInt`。`1.0.0-01` 由冻结 Core `compare_semver` 本身接受，Dashboard 与 Core 行为一致；本批
+  没有让 PK-100 单方面改写共享版本规则。
+- 未安装/同版/可更新/本机较新/更高不兼容/非官方来源/同 ID 多官方版本唯一目标矩阵通过；update
+  只发 `/api/v1/modules/{id}/update-official`。源码中的成功路径依次重新 GET `/api/v1/modules` 和本机
+  `/api/v1/modules/official-catalog`，两次读取任一失败均由 `finally`/恢复状态机解除 blocking phase，
+  `check_javascript_contract()` 的累计状态、请求和恢复夹具通过。
+
+### Browser fake 与零副作用
+
+- 仅在临时 fake preview `127.0.0.1:18779`、375×812 viewport 复验。Bilibili 1.0.0 显示“已安装”且
+  按钮 disabled，批量模式中对应 checkbox 数为 0；Conversation 1.0.0 显示“下载并安装”且恰有一个
+  checkbox。页面 `innerWidth=375`、document scroll width=360，无横向溢出。
+- 页面加载、展开模块中心、进入批量、选择 Conversation、打开确认框及 Escape 取消期间，audit 中
+  POST 为 0；模块中心业务状态仅读取 `/api/v1/modules` 与 `/api/v1/modules/official-catalog`，未访问
+  GitHub。确认框具有精确 `aria-labelledby=official-module-batch-confirmation-heading` 和
+  `aria-describedby=official-module-batch-summary`，确认按钮自动聚焦；Escape 关闭后焦点恢复到“安装已选”。
+  fake 服务已停止、临时 tab 已关闭、viewport 已 reset。
+
+### 实际命令与结果
+
+- 独立内存 Node 逆向脚本：冲突正反深度相等、候选字段不泄漏、单条关联、identity 交叉、SemVer、
+  状态矩阵、batch 拒绝与唯一 update route 全部通过。
+- 隔离 Python 调用 `check_html_contract()`、`check_javascript_contract()`：通过；
+  `node --check server/static/dashboard/module-management.js`：通过；相关 `py_compile`：通过。
+- `python -m pytest server/tests/test_official_module_catalog.py server/tests/test_installable_modules.py -q`：
+  **22 passed**。
+- 完整 `server/tests/test_dashboard_shell.py` 仍只停止在共享 manifest inventory。独立重算为 actual 21 /
+  expected 20，unexpected 仅 `learning`、missing 0，精确归属 PK-230/共享清单；未让 PK-100 越权修改。
+- `scripts/check_task_docs.py`：`30 gated task(s)` 通过；三文件 scoped `git diff --check`：退出 0，仅
+  LF→CRLF 提示。
+
+### 隔离与八项门禁
+
+- 全部验证使用内存 fake、临时 preview 与既有隔离解释器；未读取、打印、diff、复制或修改真实 GitHub、
+  registry、`server/runtime`、个人状态、缓存、秘密、模型或 `vendor/`，未安装/更新真实模块，未执行 Git
+  暂存、提交、推送、发布、切换或清理。
+- [x] TASK_RECORD — 本节追加本轮结论、逆向、Browser、命令、共享门禁与隔离证据。
+- [x] TASKS_BOARD — 未修改；PK-100“待集成”，PK-900“进行中”。
+- [x] PUBLIC_README — 本轮未改变用户契约或公开说明。
+- [x] MODULE_CATALOG — 未访问远端或修改 Catalog。
+- [x] ARCHITECTURE_DOCS — 保持 PK-010/Core 身份、SemVer 与生命周期边界。
+- [x] LOCAL_README — 未修改或输出本机私有配置。
+- [x] AGENT_RULES — 遵守保护数据、混合工作区、Browser、fake 与 Git 边界。
+- [x] VALIDATION — 本批要求的冲突、身份、版本、状态矩阵、Browser、静态、回归、文档和 diff 门禁已完成；
+  PK-230 的 21/20 共享 inventory 冲突单独记录，不作为 PK-100 阻断。
+
+## PK-240 每日生活预报源码候选独立验收（2026-08-20）
+
+### 结论与状态
+
+- **通过（源码候选范围）。** 独立源码审计与 17 项离线专项未发现 PK-240 产品阻断：普通 config/today
+  读取不调用 Provider，只有显式 refresh 进入固定 Open-Meteo Provider；跨日、损坏缓存、并发合并、上游失败
+  及原子替换失败均 fail closed 并保留旧数据。PK-240 继续保持“待集成”，PK-900 继续“进行中”，交由
+  PK-000 做共享 Catalog、真实安装运行态与最终状态收口。
+
+### 独立证据
+
+- 完整阅读 PK-240 任务、每日生活预报架构、manifest、repository/service/provider/router/module、确定性 builder、
+  dashboard entrypoint、release fragment/entry 与实际差异。Provider 只接收清空 city/fortune 的坐标视图，固定
+  `api.open-meteo.com` 与 `air-quality-api.open-meteo.com`，关闭重定向及环境代理；响应只保留经范围、单位、
+  日期、时区和天气码校验的规范化数值，有限错误码不携带上游正文。
+- `python -m pytest -c NUL server/tests/test_life_forecast_module.py -q` 使用系统临时 cache/basetemp：
+  **17 passed in 0.73s**。覆盖普通读取零网络、显式 refresh、跨日不复用、损坏缓存不修写、Provider/缓存不含
+  city/坐标、MockTransport 单位规范化、超时/429/5xx/恶意时区、AQI 降级、非法坐标、原子保存失败保旧、
+  并发 refresh 单次采集、DST、本地确定性娱乐提示、dashboard 无直接 fetch，以及双次确定性 ZIP。
+- 包测试在两个系统临时目录逐字节构建，并用受跟踪 release entry 反向断言最终 ZIP 大小 **43495 bytes**、
+  SHA-256 `b1f981a23e6fca2dcb4cd056c47ef25c9aa3d03a61111fe4a3a498b45eeb3a99`、manifest SHA-256
+  `ef3673c9f973c9b231c41ed03649e7e046a0c07f67dc61c7431860c07336986c`；manifest 为可选 in-process、
+  固定 backend/dashboard entrypoint、独立 `life_forecast` 数据命名空间，包扫描排除 config/cache/runtime/
+  vendor/`.env`。动态面板只经 `context.request` 读取 config/today，保存与 refresh 均为显式按钮动作。
+
+### 限制、隔离与门禁
+
+- 根项目 `.venv` 缺 pytest，故未冒充正式锁环境；改用已存在且具备 pytest/httpx 的系统 Python 运行同一离线
+  专项。收到停止长耗时测试指示后，没有继续执行完整全仓 pytest/ruff，也没有再次独立跑临时 ModuleManager
+  安装/启用/重启装载/停用/卸载 smoke；本轮对生命周期的结论来自 manifest/module/loader 接缝静态复核及
+  专项中的包内容验证，真实本机安装运行态仍保留给 PK-000 后续串行窗口，不据此提前标记“已完成”。
+- 未读取、打印、diff 或修改真实生活预报数据、`.env`、位置、缓存、个人状态、`server/runtime`、模型或
+  `vendor/`；未联网、未安装真实模块、未执行 Git 暂存/提交/推送/发布/切换/清理。被中断的额外临时构建
+  未产出文件，也未写入仓库。
+- [x] TASK_RECORD — 本节记录结论、独立测试、包摘要、限制和隔离。
+- [x] TASKS_BOARD — 未修改；PK-240“待集成”，PK-900“进行中”。
+- [x] PUBLIC_README — 本轮只读核对，未修改。
+- [x] MODULE_CATALOG — 仅核对 PK-240 release entry，未合并或发布。
+- [x] ARCHITECTURE_DOCS — 已核对 WeatherProvider、缓存和显式联网边界。
+- [x] LOCAL_README — 未修改或输出本机私有配置。
+- [x] AGENT_RULES — 遵守临时目录、保护数据、混合工作区与 Git 边界。
+- [x] VALIDATION — 17 项专项及源码/包契约通过；完整锁环境与真实安装运行态限制已透明保留给总控。
+
+## PK-240 每日生活预报最终运行态复核（2026-08-20）
+
+### 结论与状态
+
+- **通过。** PK-000 已补齐源码候选报告保留的正式本机生命周期和浏览器装载门禁：通过 ModuleManager
+  安装并启用 `life_forecast@1.0.0`，由受控 supervisor 重启 Core，未直接编辑 registry/runtime。
+- `GET /api/v1/modules` 返回 `life_forecast` 的 `installed_version=1.0.0`、`enabled=true`、
+  `install_status=enabled`；模块 dashboard asset 与只读 today API 均返回 200。
+- 真实 dashboard 中“每日生活预报”卡片可见且可展开，配置控件、三个结果分区和显式刷新入口完整装载；
+  初始 provider disabled、cache missing，不会因页面加载或展开联网。
+- PK-240 由 PK-000 最终标记“已完成”。PK-900 仍保持“进行中”，因为其总任务文件还承载其他未关闭批次；
+  本节只关闭 PK-240 子批次，不改变其他任务状态。
+
+### 隔离与发布边界
+
+- 本轮没有保存位置配置、点击刷新或访问天气上游；没有读取/输出 `.env`、位置、缓存、个人状态、模型、
+  `vendor/` 或其他混合工作区内容。
+- 官方不可变 Release asset 和远程 Catalog 尚未发布；本地正式安装通过不等同于远程一键安装已上线。
+- 未执行 Git 暂存、提交、推送、发布、切分支或工作区清理。
+
+## PK-241 QQ 生活预报显式刷新独立聚焦验收（2026-08-20）
+
+### 结论与状态
+
+- **通过（源码候选聚焦验收）。** 未发现阻断。PK-241 继续保持“待集成”，PK-900 继续“进行中”；本节不修改
+  `TASKS.md` 或任务状态。
+- 固定菜单 action `kei:life-forecast` 在总开关开启时只调用一次
+  `POST /api/v1/life-forecast/refresh`，并直接格式化本次响应；不先读 today、不二次刷新、不回退旧缓存。
+- 四个精确关键词“每日生活预报”“今日生活预报”“生活预报”“今日天气预报”仍各只调用一次
+  `GET /api/v1/life-forecast/today`，不会调用 refresh。
+- 页面/菜单加载、总开关关闭以及“天气”等宽泛普通聊天均为零 refresh；同一个 interaction 的重复投递至多产生一次
+  refresh 和一次回复。
+- refresh 失败时只返回固定、脱敏的失败提示，零重试、零 today fallback、零旧缓存展示。
+
+### 独立反向验证
+
+- 独立执行 `node --test tests/business_menu.test.mjs`：**32/32 通过**。覆盖菜单 action 单次 POST、四关键词
+  单次 GET、开关关闭零 API、宽泛天气旁路、refresh 失败不回退、重复 interaction 去重和结果格式化。
+- 注入 Bearer/token/API key/Cookie/Secret、城市、Provider、attribution、Windows/Unix 路径等虚构 marker；最终
+  QQ markdown 均未出现原值，上游错误正文亦未透出。
+- 独立执行全部 bridge Node 测试：**151/151 通过**；执行
+  `python -m unittest -q qq_bridge.tests.test_installable_package qq_bridge.tests.test_configuration_panel`：
+  **30/30 通过**。
+- 所有 HTTP/QQ/天气调用均为 fake；没有启动 Gateway、真实 QQ、天气 Provider 或外部网络。
+
+### 候选包与隔离
+
+- 两个系统临时目录确定性构建 `qq_bridge-0.1.26.zip` 字节一致：**172429 bytes**，SHA-256
+  `9ab9c65ab25e7c357338f4654f3d46f383bb5f34d8179aa19c703ae89c5f8ae0`。
+- 源 manifest SHA-256 为
+  `2d5e4ff59cd2684efb4c1a82c157a74c731e89b1ccddfe7f01c999814e13de2f`；包内文件严格为预期 **16 项**，
+  禁止路径分段命中 **0**，真实秘密 marker 命中 **0**。README/schema/lockfile 中对 `.env` 或
+  `node_modules` 的说明文字不属于打包路径或秘密值，未误报为发布资产。
+- 未读取或修改真实 `.env`、QQ data、生活预报缓存、`server/runtime`、个人状态或 `vendor/`；未安装真实模块，
+  未执行 Git 暂存、提交、推送、发布或清理。
+
+### 完成文档门禁
+
+- [x] TASK_RECORD — 本节记录结论、次数边界、失败行为、脱敏、包摘要和隔离证据。
+- [x] TASKS_BOARD — 未修改；PK-241“待集成”，PK-900“进行中”。
+- [x] PUBLIC_README — 本轮未修改。
+- [x] MODULE_CATALOG — 仅核对候选包和 release 元数据，未合并或发布。
+- [x] ARCHITECTURE_DOCS — 未改变 PK-240/PK-110/PK-140 已冻结契约。
+- [x] LOCAL_README — 未读取或输出本机私有配置。
+- [x] AGENT_RULES — 遵守受保护数据、临时目录、混合工作区和 Git 边界。
+- [x] VALIDATION — 聚焦 32/32、Node 151/151、Python 30/30 与确定性包检查通过。

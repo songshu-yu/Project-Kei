@@ -14,7 +14,7 @@ from .providers import (
     BriefingVoiceProvider,
     BriefingVoiceProviderResolver,
 )
-from .repository import BriefingRepository
+from .repository import BriefingRepository, LifeForecastProjectionRepository
 from .service import BriefingService
 
 
@@ -147,6 +147,7 @@ class DailyBriefingService:
         patch_cooldown=None,
         rewrite_timeout: float = 60.0,
         section_limits=None,
+        life_forecast_provider: Optional[Callable[[], object]] = None,
     ):
         # ``tts`` remains accepted so old constructors do not crash, but PK-110
         # never invokes it. Narration audio must arrive through ``voice``.
@@ -154,6 +155,9 @@ class DailyBriefingService:
         source_config_provider = source_config_provider or _load_legacy_source_config
         self.root_dir = Path(root_dir)
         self.repository = BriefingRepository(self.root_dir)
+        self.life_forecast_projection_repository = (
+            LifeForecastProjectionRepository(self.root_dir)
+        )
         self.gateway = gateway or _legacy_gateway(clock, source_config_provider)
         kwargs = {}
         if patch_cooldown is not None:
@@ -167,6 +171,10 @@ class DailyBriefingService:
             clock=clock,
             rewrite_timeout=rewrite_timeout,
             section_limits=section_limits,
+            life_forecast_projection_repository=(
+                self.life_forecast_projection_repository
+            ),
+            life_forecast_provider=life_forecast_provider,
             **kwargs,
         )
         self.text_generator = text_generator

@@ -77,6 +77,45 @@ class QQConfigurationTests(unittest.TestCase):
             self.assertTrue(payload["voice_setting_valid"])
             self.assertEqual(payload["qq_media_upload_capability"], "unknown")
             self.assertTrue(payload["media_capability_valid"])
+            self.assertFalse(payload["life_forecast_enabled"])
+
+    def test_life_forecast_opt_in_defaults_off_and_persists_atomically(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            env_path = Path(temp) / ".env"
+            env_path.write_text(
+                f"OTHER_KEY=keep-me\nQQBOT_APPID={APP_ID}\nQQBOT_SECRET={SECRET}\n",
+                encoding="utf-8",
+            )
+            store = QQBridgeConfigurationStore(env_path)
+            self.assertFalse(store.status()["life_forecast_enabled"])
+            enabled = store.update(
+                appid=None,
+                secret=None,
+                life_forecast_enabled=True,
+            )
+            self.assertTrue(enabled["life_forecast_enabled"])
+            self.assertIn(
+                "QQBOT_LIFE_FORECAST_ENABLED=true",
+                env_path.read_text(encoding="utf-8"),
+            )
+            self.assertIn("OTHER_KEY=keep-me", env_path.read_text(encoding="utf-8"))
+            original = env_path.read_bytes()
+            failing = QQBridgeConfigurationStore(
+                env_path,
+                replace=lambda _source, _destination: (_ for _ in ()).throw(
+                    OSError("synthetic life forecast failure")
+                ),
+            )
+            with self.assertRaisesRegex(
+                QQConfigurationError, "configuration_save_failed"
+            ):
+                failing.update(
+                    appid=None,
+                    secret=None,
+                    life_forecast_enabled=False,
+                )
+            self.assertEqual(env_path.read_bytes(), original)
+            self.assertEqual(list(env_path.parent.glob(".*.tmp")), [])
 
     def test_explicit_update_preserves_other_keys_and_blank_secret(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -439,7 +478,11 @@ class QQConfigurationTests(unittest.TestCase):
                     rejected = await client.post(
                         "/api/v1/qq-control/configuration",
                         headers={"Origin": "https://attacker.invalid"},
-                        json={"appid": APP_ID, "secret": SECRET},
+                        json={
+                            "appid": APP_ID,
+                            "secret": SECRET,
+                            "life_forecast_enabled": True,
+                        },
                     )
                     exists_after_rejected = env_path.exists()
                     saved = await client.post(
@@ -448,7 +491,11 @@ class QQConfigurationTests(unittest.TestCase):
                             "Origin": "http://127.0.0.1:8000",
                             "Content-Type": "application/json",
                         },
-                        json={"appid": APP_ID, "secret": SECRET},
+                        json={
+                            "appid": APP_ID,
+                            "secret": SECRET,
+                            "life_forecast_enabled": True,
+                        },
                     )
                     invalid = await client.post(
                         "/api/v1/qq-control/configuration",
@@ -458,10 +505,34 @@ class QQConfigurationTests(unittest.TestCase):
                         },
                         content=json.dumps({"appid": APP_ID, "secret": [SECRET]}),
                     )
+                    invalid_life_forecast = await client.post(
+                        "/api/v1/qq-control/configuration",
+                        headers={
+                            "Origin": "http://127.0.0.1:8000",
+                            "Content-Type": "application/json",
+                        },
+                        json={"life_forecast_enabled": "true"},
+                    )
                     status = await client.get("/api/v1/qq-control/status")
-                return initial, rejected, exists_after_rejected, saved, invalid, status
+                return (
+                    initial,
+                    rejected,
+                    exists_after_rejected,
+                    saved,
+                    invalid,
+                    invalid_life_forecast,
+                    status,
+                )
 
-            initial, rejected, exists_after_rejected, saved, invalid, status = asyncio.run(exercise())
+            (
+                initial,
+                rejected,
+                exists_after_rejected,
+                saved,
+                invalid,
+                invalid_life_forecast,
+                status,
+            ) = asyncio.run(exercise())
             self.assertEqual(initial.status_code, 200)
             self.assertEqual(rejected.status_code, 403)
             self.assertFalse(exists_after_rejected)
@@ -470,8 +541,10 @@ class QQConfigurationTests(unittest.TestCase):
             self.assertNotIn(APP_ID, response_text)
             self.assertNotIn(SECRET, response_text)
             self.assertTrue(saved.json()["restart_required"])
+            self.assertTrue(saved.json()["life_forecast_enabled"])
             self.assertEqual(invalid.status_code, 422)
             self.assertNotIn(SECRET, invalid.text)
+            self.assertEqual(invalid_life_forecast.status_code, 422)
             self.assertEqual(status.json()["state"], "ready")
 
     def test_dashboard_uses_password_field_without_browser_storage(self) -> None:

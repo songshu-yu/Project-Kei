@@ -13,9 +13,9 @@ from typing import Iterable
 
 BRIDGE_ROOT = Path(__file__).resolve().parent
 PACKAGE_SOURCE = BRIDGE_ROOT / "package_source"
-OFFICIAL_RELEASE_VERSION = "0.1.24"
-OFFICIAL_RELEASE_TAG = "modules-2026.08.12"
-OFFICIAL_ASSET_NAME = "qq_bridge-0.1.24.zip"
+OFFICIAL_RELEASE_VERSION = "0.1.26"
+OFFICIAL_RELEASE_TAG = "modules-2026.08.20"
+OFFICIAL_ASSET_NAME = "qq_bridge-0.1.26.zip"
 FIXED_ZIP_DATETIME = (2026, 1, 1, 0, 0, 0)
 SIDECAR_SOURCE_FILES = (
     "bridge_core.mjs",

@@ -94,6 +94,11 @@ Origin，并由 PK-140 自有组件在固定 `server/qq_bridge/.env` 上执行�
 生产 encoder 缺失或异常均显示 voice unavailable。Secret 存在不能推断媒体权限，状态
 读取也不会真实发送探测消息。
 
+同一配置接口还提供默认关闭的 `life_forecast_enabled`，原子保存为
+`QQBOT_LIFE_FORECAST_ENABLED=true|false`。开启只允许私聊显式查询当天缓存；保存、
+状态读取、控制台加载、菜单展示和文字关键词均不会调用天气 refresh、上游网络或增加生活预报定时推送。
+只有用户在 QQ 私聊菜单中明确点击“生活预报”按钮时，bridge 才会调用一次固定本机 refresh 接口。
+
 白名单为空时 bridge 可以保持连接，但不会转发、回复、显示菜单、确认按钮或主动发送。普通未授权消息只产生不含消息正文和个人标识的固定安全日志。当前 bridge 不提供持续打印 `user_openid` 的“发现模式”；首次绑定标识应通过操作者明确授权的 QQ 开放平台调试/事件工具取得，再人工写入本机 `.env`。不得把标识、白名单或凭证复制到文档、测试或浏览器存储。
 
 ## 私聊与网络边界
@@ -101,6 +106,7 @@ Origin，并由 PK-140 自有组件在固定 `server/qq_bridge/.env` 上执行�
 - 只接受明确的 `C2C_MESSAGE_CREATE` 文本和白名单内 `INTERACTION_CREATE` 按钮。
 - 普通文字调用 `POST /api/v1/conversation`；`/chat/text-only` 只保留服务端兼容，不是 bridge 主路径。
 - “每日情报”和按钮只调用 `GET /api/v1/briefing/today`，缓存缺失时提示失败，不触发采集。
+- “生活预报”按钮固定 action 为 `kei:life-forecast`，点击后只调用一次固定本机 `POST /api/v1/life-forecast/refresh` 并直接展示其当天结果；四个完整关键词“每日生活预报”“今日生活预报”“生活预报”“今日天气预报”仍各自至多调用一次 `GET /api/v1/life-forecast/today`。关闭时两类入口均零 API；“天气不错”“聊聊天气”等普通文字仍进入 conversation。
 - 明确菜单、四个业务功能名、斩妖添加命令和两条严格日历命令先于宽泛的每日情报关键词及 conversation 路由；因此目标、备忘标题或修炼技能名包含“每日情报”等词时仍确定性执行严格命令。未知普通文字继续进入 `/api/v1/conversation`。
 - QQ 401 最多强制刷新 Token 并重试一次；其他 QQ/Kei 错误只记录有限错误码，不拼接上游正文。
 - 输入、回复、Markdown 字段、各类条目、warnings、URL 和总输出均有限长；URL 只接受无 userinfo 的 HTTP(S)，敏感 query 参数会被移除。
@@ -130,13 +136,14 @@ claimed 采用 at-most-once 失败关闭，重复事件、并发与重启不会�
 
 ## 业务私聊菜单
 
-主菜单固定为“每日情报、斩妖除魔、健身打卡、专注计时、日历与修炼”。主菜单和子菜单展示不产生业务写请求；interaction 在 allowlist 与事件去重后先安全 ACK，再访问 Project Kei 本机版本化 API。按钮 action 只能命中 bridge 内的固定枚举/分发表，不能作为 URL、HTTP method、命令或文件路径执行。
+主菜单固定为“每日情报、斩妖除魔、健身打卡、专注计时、日历与修炼、生活预报”。主菜单和子菜单展示不产生业务写请求；interaction 在 allowlist 与事件去重后先安全 ACK，再访问 Project Kei 本机版本化 API。按钮 action 只能命中 bridge 内的固定枚举/分发表，不能作为 URL、HTTP method、命令或文件路径执行。
 
 - 斩妖只读 `/api/v1/demon-slayer/status`，只展示前 4 个今日目标；完成/未完成按钮仅接受刚由该响应返回、格式合法且仍在 10 分钟用户绑定缓存中的 goal_id，并写 `/api/v1/demon-slayer/checkins`。完成固定提交 `with_encouragement=true`，同一次响应直接展示 PK-150 service 返回的启用天数、当前/历史连续周期、正确单位和 Kei 鼓励；未完成固定为 `false`。Node 不重算连续规则，也不额外调用 conversation。
 - 斩妖子菜单新增“添加常驻目标”。发送精确的“添加斩妖任务”或不带标题的“添加日/周/月/年任务”会弹出四个周期按钮且零业务写入；点击周期只显示固定格式。严格单消息 `添加日任务 目标名称`、`添加周任务 目标名称`、`添加月任务 目标名称`、`添加年任务 目标名称` 会生成用户绑定、单次使用、10 分钟过期的确认按钮，只有点击“确认添加”才调用一次 `POST /api/v1/demon-slayer/goals`，固定提交 `category=auto`、`repeat_mode=recurring`、`target_date=null`。标题只存在短时内存缓存，不进入 action、磁盘或 conversation；取消、过期、跨用户和重复确认均零写入。单独“生成今日复盘”只读 `/api/v1/demon-slayer/reviews/daily`。不开放目标编辑、删除、临时目标、奖励兑换、reset 或其他复盘。
 - 健身只读 `/api/v1/fitness/status`；独立“确认今日健身打卡”调用一次 `/api/v1/fitness/checkins`。不开放 reset。
 - 专注只读 `/api/v1/focus/status`；原“开始 25 分钟专注”保持无模型副作用，仍使用 pomodoro、空 task、`force=false`、`with_audio=false`。另有显式“25 分钟，10 分钟后鼓励”按钮和严格单消息 `专注 25 鼓励 10`；专注时长只接受整数 2–240，鼓励时间必须为正整数且早于结束。格式错误只返回用法，不进入 conversation。停止只调用 `/api/v1/focus/stop` 并取消该用户尚未发送的鼓励。404 时只提示模块不可用，不安装、升级、启用或重启模块。
 - 日历分别只读 `/api/v1/calendar/today` 与 `/api/v1/calendar/status`。新增只接受 `添加备忘 YYYY-MM-DD 标题` 和 `记录修炼 技能 小时数` 两条严格单消息命令；日期、长度和大于 0 且不超过 24 小时的范围在 Node 本地确定性校验，格式错误只返回用法，不进入 LLM 或长期多轮状态。
+- 生活预报按钮和四个完整关键词共用同一格式化/脱敏边界，但访问语义明确分离：按钮显式刷新一次，关键词只读当天缓存。展示当天可用天气事实、四类生活建议和 PK-240 已开启的娱乐内容，并保留“娱乐内容、非事实预测”。刷新失败不回退缓存；跨天、缺失、损坏或结构异常固定降级，不回显城市、坐标、Provider、路径或上游错误正文。
 
 所有业务响应只提取有界字段；目标、备忘、技能、鼓励和 Markdown 会清洗、转义、限长，列表只展示前 4–5 项。斩妖 `active_days=null` 显示未知，`once` 显示不累计，连续零值保持为零，`streak_unit` 只映射为天/周/月/年标签。超时、404、422/500、损坏个人状态和上游错误体统一为有限提示，不回显响应正文、异常、路径、凭证或个人状态。bridge 不读取四个模块的 repository、JSON 状态或缓存，也不调用 legacy、reset、reward/redeem、DELETE/PATCH、临时目标创建、`force=true` 或任意 URL。
 

@@ -61,6 +61,7 @@ OFFICIAL_MODULE_IDS = (
     "x_monitor",
     "youtube",
 )
+INSTALLABLE_MODULE_IDS = tuple(sorted((*OFFICIAL_MODULE_IDS, "life_forecast")))
 
 
 def run_node(args: list[str], *, input_text: str | None = None) -> None:
@@ -98,8 +99,17 @@ def check_html_contract() -> None:
         "updated",
         "services",
         "refresh-official-module-catalog",
+        "toggle-official-module-batch",
         "official-module-catalog-status",
         "official-module-install-confirmation",
+        "official-module-batch-toolbar",
+        "official-module-batch-count",
+        "select-all-official-modules",
+        "cancel-official-module-batch",
+        "install-selected-official-modules",
+        "official-module-batch-confirmation",
+        "official-module-batch-summary",
+        "official-module-batch-list",
         "official-module-catalog",
         "refresh-installed-modules",
         "module-operation-status",
@@ -143,6 +153,8 @@ def check_html_contract() -> None:
     for choice in ("keep", "manifest", "cancel"):
         assert f'data-local-module-id-choice="{choice}"' in html
     assert "保留手工 ID" in html and "使用新包自动识别" in html
+    assert "批量选择" in html and "全选兼容项" in html and "安装已选" in html
+    assert 'aria-pressed="false"' in html
     assert "pk100-20260808-controls1" in html
     assert "重启期间控制台会短暂断开并自动尝试重连" in html
     assert "选择已有引擎目录" in html
@@ -200,11 +212,11 @@ def check_public_readme_contract() -> None:
 
 def check_manifest_inventory() -> None:
     manifests = package_manifests()
-    assert len(manifests) == len(OFFICIAL_MODULE_IDS)
+    assert len(manifests) == len(INSTALLABLE_MODULE_IDS)
     records = [json.loads(path.read_text(encoding="utf-8")) for path in manifests]
-    assert tuple(sorted(record["id"] for record in records)) == OFFICIAL_MODULE_IDS
+    assert tuple(sorted(record["id"] for record in records)) == INSTALLABLE_MODULE_IDS
     dashboard_records = [record for record in records if record.get("dashboard_entrypoint")]
-    assert len(dashboard_records) == 18
+    assert len(dashboard_records) == 19
     assert next(record for record in records if record["id"] == "youtube").get(
         "dashboard_entrypoint"
     ) in (None, "")
@@ -255,7 +267,7 @@ def check_javascript_contract() -> None:
     assert "grid-column:1/-1;" in css
     assert "@media (min-width:421px) and (max-width:760px)" in css
     assert ".service-status-control" in css
-    assert "button.textContent = '暂无目录更新'" in manager
+    assert "'暂无目录更新'" in manager
 
     assert "loadLegacy" not in app and "briefing-progress" not in app
     assert "coreStatus.refresh()" in app
@@ -395,6 +407,19 @@ if (requests.filter(([path, method]) => path === '/api/v1/voice-control/asr/stop
     assert "模块依赖检查" in manager
     assert "setup.bat --profile qq" in manager
     assert "模块安装不会静默运行" in manager
+    assert "buildOfficialBatchPlan" in manager
+    assert "runOfficialBatchQueue" in manager
+    assert "reconcileOfficialModules" in manager
+    assert "compareModuleVersions" in manager
+    assert "strictRegistryModuleId" in manager
+    assert "BigInt(match[1])" in manager and "BigInt(leftPart)" in manager
+    assert "package_source !== 'official_github_release'" in manager
+    assert "下载并更新" in manager and "本机版本较新" in manager
+    assert "await reloadLocalModuleViews(officialState.message)" in manager
+    assert "await officialRequest(request, item, 'install_official')" in manager
+    assert "Promise.all" not in manager
+    assert "批量安装已停止" in manager and "未执行" in manager
+    assert "可手动刷新后继续操作" in manager
     zip_selection_source = manager.split("async function selectLocalModuleZip", 1)[1].split(
         "async function installLocalModuleZip", 1
     )[0]
@@ -464,6 +489,8 @@ if (requests.filter(([path, method]) => path === '/api/v1/voice-control/asr/stop
     assert "'module-long-term-memory': Object.freeze" in panels
     assert ".qq-launch-fallback-control{display:none!important;}" in compact_css
     assert ".module-configuration-guide>a{" in compact_css
+    assert ".official-module-batch-toolbar[hidden]{display:none;}" in compact_css
+    assert ".official-module-choice:focus-within{" in compact_css
 
     with tempfile.TemporaryDirectory(prefix="kei-dashboard-js-") as temp_dir:
         root = Path(temp_dir)
@@ -562,6 +589,168 @@ const optional = manager.allowedLifecycleActions({{
 }});
 if (optional.join(',') !== 'disable,uninstall,purge_data')
   throw new Error('optional lifecycle actions lost');
+const officialFixture = (id, dependencies = [], compatible = true) => ({{
+  module_id:id, name:id, version:'1.0.0', dependencies, optional_dependencies:[],
+  permissions:['local_state'], package_size:10, compatible,
+  available_actions:['install_official'],
+}});
+const officialCatalog = modules => ({{
+  source:{{owner:'songshu-yu',repository:'Project-Kei-Modules'}}, modules,
+}});
+const batchCatalog = officialCatalog([
+  officialFixture('feature',['support']), officialFixture('support'),
+]);
+const batchPlan = manager.buildOfficialBatchPlan(
+  batchCatalog, {{modules:[]}}, new Set(['feature@1.0.0','support@1.0.0']),
+);
+if (batchPlan.queue.map(item => item.module_id).join(',') !== 'support,feature')
+  throw new Error('batch dependency order is not deterministic');
+if (batchPlan.totalBytes !== 20 || batchPlan.permissions.join(',') !== 'local_state')
+  throw new Error('batch confirmation summary is incomplete');
+const installedDependencyPlan = manager.buildOfficialBatchPlan(
+  officialCatalog([officialFixture('feature',['support'])]),
+  {{modules:[{{key:'legacy-support',module_id:'support',managed:true,installed_version:'1.0.0',install_status:'enabled'}}]}},
+  new Set(['feature@1.0.0']),
+);
+if (installedDependencyPlan.queue.map(item => item.module_id).join(',') !== 'feature')
+  throw new Error('installed dependency was not treated as satisfied');
+for (const [catalog, keys, code] of [
+  [officialCatalog([officialFixture('feature',['missing'])]), ['feature@1.0.0'], 'batch_dependency_missing'],
+  [officialCatalog([officialFixture('a',['b']),officialFixture('b',['a'])]), ['a@1.0.0','b@1.0.0'], 'batch_dependency_cycle'],
+  [officialCatalog([officialFixture('bad',[],false)]), ['bad@1.0.0'], 'batch_module_incompatible'],
+]) {{
+  let rejected = '';
+  try {{ manager.buildOfficialBatchPlan(catalog, {{modules:[]}}, new Set(keys)); }}
+  catch (error) {{ rejected = error.code; }}
+  if (rejected !== code) throw new Error(`batch preflight did not fail closed: ${{code}}`);
+}}
+const installedRecord = (id, version, source = 'official_github_release') => ({{
+  key:id, module_id:id, managed:true, installed_version:version,
+  install_status:'enabled', package_source:source, available_actions:['update_official'],
+}});
+const versionedRelease = (id, version, compatible = true) => ({{
+  ...officialFixture(id, [], compatible), version,
+  available_actions:['install_official','update_official'],
+}});
+if (!(manager.compareModuleVersions('1.0.0-rc.2','1.0.0-rc.10') < 0)
+    || !(manager.compareModuleVersions('1.0.0','1.0.0-rc.10') > 0)
+    || manager.compareModuleVersions('1.0.0+build.2','1.0.0+build.1') !== 0)
+  throw new Error('controlled SemVer order diverged from Core');
+if (manager.compareModuleVersions('9007199254740992.0.0','9007199254740993.0.0') !== -1
+    || manager.compareModuleVersions('9007199254740993.0.0','9007199254740992.0.0') !== 1)
+  throw new Error('large Core SemVer fields lost integer precision');
+if (manager.compareModuleVersions('1.0.0-9007199254740992','1.0.0-9007199254740993') !== -1
+    || manager.compareModuleVersions('1.0.0-9007199254740993','1.0.0-9007199254740992') !== 1)
+  throw new Error('large numeric prerelease fields lost integer precision');
+const nativeBigInt = globalThis.BigInt;
+let missingBigIntRejected = false;
+try {{
+  globalThis.BigInt = undefined;
+  manager.compareModuleVersions('1.0.0','1.0.1');
+}} catch (_error) {{ missingBigIntRejected = true; }}
+finally {{ globalThis.BigInt = nativeBigInt; }}
+if (!missingBigIntRejected) throw new Error('missing BigInt silently fell back to Number');
+let invalidSemverRejected = false;
+try {{ manager.compareModuleVersions('1.0','1.0.0'); }}
+catch (_error) {{ invalidSemverRejected = true; }}
+if (!invalidSemverRejected) throw new Error('invalid SemVer was accepted');
+const versionCatalog = officialCatalog([
+  versionedRelease('fresh','1.0.0'),
+  versionedRelease('same','1.0.0'),
+  versionedRelease('older','1.1.0'),
+  versionedRelease('newer','1.0.0'),
+  versionedRelease('blocked','2.0.0',false),
+  versionedRelease('foreign','2.0.0'),
+  versionedRelease('multi','1.1.0'),
+  versionedRelease('multi','1.2.0'),
+]);
+const versionRegistry = {{modules:[
+  installedRecord('same','1.0.0'), installedRecord('older','1.0.0'),
+  installedRecord('newer','2.0.0'), installedRecord('blocked','1.0.0'),
+  installedRecord('foreign','1.0.0','local_import'), installedRecord('multi','1.0.0'),
+]}};
+const versionViews = manager.reconcileOfficialModules(versionCatalog, versionRegistry);
+const stateOf = (id, version) => versionViews.find(item => item.module_id === id && item.version === version)?.comparison_state;
+if (stateOf('fresh','1.0.0') !== 'install') throw new Error('uninstalled module not installable');
+if (stateOf('same','1.0.0') !== 'installed') throw new Error('same version not converged');
+if (stateOf('older','1.1.0') !== 'update') throw new Error('newer official version not updatable');
+if (stateOf('newer','1.0.0') !== 'local_newer') throw new Error('older cloud version treated as update');
+if (stateOf('blocked','2.0.0') !== 'incompatible') throw new Error('incompatible update exposed');
+if (stateOf('foreign','2.0.0') !== 'source_conflict') throw new Error('foreign source overwrite exposed');
+if (stateOf('multi','1.1.0') !== 'superseded' || stateOf('multi','1.2.0') !== 'update')
+  throw new Error('multiple official versions produced an ambiguous target');
+const alphaCatalog = officialCatalog([versionedRelease('alpha','1.0.0')]);
+const alphaState = registry => manager.reconcileOfficialModules(alphaCatalog, registry)[0].comparison_state;
+if (alphaState({{modules:[{{...installedRecord('alpha','1.0.0'),key:'wrong'}}]}}) !== 'installed')
+  throw new Error('registry module_id was incorrectly replaced by key');
+if (alphaState({{modules:[{{...installedRecord('beta','1.0.0'),key:'alpha'}}]}}) !== 'install')
+  throw new Error('registry key was incorrectly accepted as module_id');
+if (alphaState({{modules:[{{...installedRecord('alpha','1.0.0'),module_id:'',key:'alpha'}}]}}) !== 'install')
+  throw new Error('empty registry module_id was not ignored');
+const alphaFirst = {{...installedRecord('alpha','1.0.0'),key:'first',label:'First',package_source:'official_github_release'}};
+const alphaSecond = {{...installedRecord('alpha','0.9.0','local_import'),key:'second',label:'Second'}};
+const conflictForward = manager.reconcileOfficialModules(alphaCatalog, {{modules:[alphaFirst,alphaSecond]}});
+const conflictReverse = manager.reconcileOfficialModules(alphaCatalog, {{modules:[alphaSecond,alphaFirst]}});
+if (JSON.stringify(conflictForward) !== JSON.stringify(conflictReverse)
+    || conflictForward[0].comparison_state !== 'registry_conflict'
+    || conflictForward[0].local_module !== null
+    || ['install','update'].includes(conflictForward[0].comparison_state))
+  throw new Error('duplicate registry conflict leaked order-dependent candidate data');
+for (const registry of [{{modules:[alphaFirst,alphaSecond]}},{{modules:[alphaSecond,alphaFirst]}}]) {{
+  let conflictBatchCode = '';
+  try {{ manager.buildOfficialBatchPlan(alphaCatalog, registry, new Set(['alpha@1.0.0'])); }}
+  catch (error) {{ conflictBatchCode = error.code; }}
+  if (conflictBatchCode !== 'batch_selection_stale')
+    throw new Error('duplicate registry conflict entered batch install');
+}}
+const batchKeys = manager.buildOfficialBatchPlan(
+  officialCatalog([versionedRelease('fresh','1.0.0'),versionedRelease('same','1.0.0')]),
+  {{modules:[installedRecord('same','1.0.0')]}}, new Set(['fresh@1.0.0']),
+).queue.map(item => item.module_id);
+if (batchKeys.join(',') !== 'fresh') throw new Error('installed/update module entered batch install');
+const updateCalls = [];
+await manager.officialRequest(async (path, options) => {{
+  updateCalls.push([path, options]);
+  return {{installed_version:'1.1.0'}};
+}}, versionViews.find(item => item.module_id === 'older'), 'update_official');
+if (updateCalls.length !== 1
+    || updateCalls[0][0] !== '/api/v1/modules/older/update-official'
+    || updateCalls[0][1].method !== 'POST'
+    || updateCalls[0][1].body !== JSON.stringify({{version:'1.1.0',confirmation:'older@1.1.0'}}))
+  throw new Error('official update did not use the single frozen lifecycle request');
+let activeBatchRequests = 0;
+let maxActiveBatchRequests = 0;
+const batchCalls = [];
+const serialResult = await manager.runOfficialBatchQueue(batchPlan.queue, async item => {{
+  activeBatchRequests += 1;
+  maxActiveBatchRequests = Math.max(maxActiveBatchRequests, activeBatchRequests);
+  batchCalls.push(item.module_id);
+  await new Promise(resolve => setTimeout(resolve, 2));
+  activeBatchRequests -= 1;
+}});
+if (maxActiveBatchRequests !== 1 || batchCalls.join(',') !== 'support,feature'
+    || serialResult.failed !== null)
+  throw new Error('batch installs were not strictly serial');
+const stoppedQueue = [officialFixture('first'), officialFixture('second'), officialFixture('third')];
+const stoppedCalls = [];
+const stoppedResult = await manager.runOfficialBatchQueue(stoppedQueue, async item => {{
+  stoppedCalls.push(item.module_id);
+  if (item.module_id === 'second') throw new Error('fixture failure');
+}});
+if (stoppedCalls.join(',') !== 'first,second' || stoppedResult.completed.length !== 1
+    || stoppedResult.failed.module_id !== 'second'
+    || stoppedResult.remaining.map(item => item.module_id).join(',') !== 'third')
+  throw new Error('batch failure result was not bounded');
+const successfulState = manager.recoverOfficialModuleState(manager.createOfficialModuleState({{
+  phase:'success', catalog:batchCatalog, message:'installed',
+}}));
+if (successfulState.phase !== 'cache_ready' || successfulState.message !== 'installed')
+  throw new Error('single install remained in a blocking success phase');
+const refreshFailureState = manager.recoverOfficialModuleState(manager.createOfficialModuleState({{
+  phase:'installing', catalog:batchCatalog,
+}}), {{failed:true, message:'refresh failed'}});
+if (refreshFailureState.phase !== 'failed' || refreshFailureState.message !== 'refresh failed')
+  throw new Error('refresh failure did not recover interaction');
 if (theme.defaultDashboardTheme !== 'cloud') throw new Error('wrong default theme');
 if (theme.normalizeDashboardTheme('bad') !== 'cloud') throw new Error('theme fallback failed');
 const badStorage = {{getItem(){{throw new Error('blocked');}},
@@ -570,6 +759,9 @@ if (theme.readDashboardTheme(badStorage) !== 'cloud') throw new Error('storage f
 theme.writeDashboardTheme(badStorage, 'moon');
 """
         run_node(["--input-type=module", "-e", probe])
+    preview_record = _module_record("focus", managed=True, enabled=True)
+    assert preview_record["module_id"] == "focus"
+    assert preview_record["key"] == "focus"
 
 
 def check_static_asset_boundary() -> None:
@@ -645,6 +837,7 @@ def _module_record(
         actions += ["disable" if enabled else "enable", "uninstall", "purge_data"]
     return {
         "key": module_id,
+        "module_id": module_id,
         "label": module_id.replace("_", " ").title(),
         "required": module_id in CORE_MODULE_IDS,
         "managed": managed,
@@ -685,6 +878,7 @@ def create_preview_app() -> FastAPI:
         "rss_intel",
     }
     preview_modules = intelligence_modules | {"focus"}
+    installed_fixture = set(preview_modules | {"calendar", "youtube"})
     restart_fixture = {"generation": 4, "pending": False}
     gpt_sovits_fixture = {
         "registration_state": "unregistered",
@@ -776,7 +970,7 @@ def create_preview_app() -> FastAPI:
         business = [
             _module_record(
                 module_id,
-                managed=module_id in preview_modules | {"calendar", "youtube"},
+                managed=module_id in installed_fixture,
                 enabled=module_id in preview_modules,
                 dashboard_entrypoint=(
                     f"/api/v1/modules/{module_id}/assets/dashboard/index.js"
@@ -784,7 +978,7 @@ def create_preview_app() -> FastAPI:
                     else None
                 ),
             )
-            for module_id in OFFICIAL_MODULE_IDS
+            for module_id in INSTALLABLE_MODULE_IDS
         ]
         return {"modules": core + business, "module_manager_error": None}
 
@@ -802,17 +996,19 @@ def create_preview_app() -> FastAPI:
                     "package_sha256": "a" * 64,
                     "release_tag": f"{module_id}-v1.0.0",
                     "asset_name": f"{module_id}-1.0.0.zip",
-                    "dependencies": [],
+                    "dependencies": (
+                        ["conversation"] if module_id == "affection_memory" else []
+                    ),
                     "optional_dependencies": [],
                     "conflicts": [],
                     "permissions": ["local_state"],
                     "data_policy": "preserve_on_uninstall",
                     "requires_restart": True,
                     "installed_version": (
-                        "1.0.0" if module_id in {"focus", "calendar", "youtube"} else None
+                        "1.0.0" if module_id in installed_fixture else None
                     ),
                     "available_actions": (
-                        [] if module_id in {"focus", "calendar", "youtube"}
+                        [] if module_id in installed_fixture
                         else ["install_official"]
                     ),
                 }
@@ -836,6 +1032,20 @@ def create_preview_app() -> FastAPI:
         result["network_accessed"] = True
         result["refresh_status"] = "success"
         return result
+
+    @app.post("/api/v1/modules/{module_id}/install-official")
+    async def install_official(module_id: str, request: Request):
+        body = await request.json()
+        if body != {"version": "1.0.0", "confirmation": f"{module_id}@1.0.0"}:
+            raise HTTPException(status_code=400, detail="invalid official confirmation")
+        if module_id not in OFFICIAL_MODULE_IDS:
+            raise HTTPException(status_code=404, detail="unknown fixture module")
+        installed_fixture.add(module_id)
+        return {
+            "module_id": module_id,
+            "installed_version": "1.0.0",
+            "restart_required": True,
+        }
 
     @app.post("/api/v1/modules/install-upload")
     async def install_upload(request: Request, expected_module_id: Optional[str] = None):

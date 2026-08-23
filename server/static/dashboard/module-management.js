@@ -60,6 +60,12 @@ const interactionBlockedPhases = new Set([...operationPhases, 'confirming']);
 const localModuleIdPattern = /^[a-z][a-z0-9_]{0,63}$/;
 const localModuleUploadMaxBytes = 64 * 1024 * 1024;
 
+function officialCatalogSourceLabel(catalog) {
+  const source = catalog?.source;
+  if (!source || typeof source !== 'object') return officialRepositoryLabel;
+  return [source.owner, source.repository].filter(Boolean).join('/') || officialRepositoryLabel;
+}
+
 function safeStrings(value) {
   return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : [];
 }
@@ -153,19 +159,36 @@ export function manualModuleIdNeedsConfirmation(origin, value) {
   return origin === 'manual' && Boolean(String(value || '').trim());
 }
 
-function compareModuleVersions(left, right) {
-  const parse = (value) => String(value || '').split(/[.-]/, 4).map((part, index) => (
-    index < 3 ? Number.parseInt(part, 10) || 0 : part
-  ));
-  const a = parse(left);
-  const b = parse(right);
+function parseControlledSemver(value) {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(String(value || ''));
+  if (!match) throw new Error(`无效的语义版本：${String(value || '')}`);
+  if (typeof BigInt !== 'function') throw new Error('当前浏览器不支持精确语义版本比较');
+  return [BigInt(match[1]), BigInt(match[2]), BigInt(match[3]), match[4] ? match[4].split('.') : []];
+}
+
+export function compareModuleVersions(left, right) {
+  const a = parseControlledSemver(left);
+  const b = parseControlledSemver(right);
   for (let index = 0; index < 3; index += 1) {
-    if (a[index] !== b[index]) return a[index] - b[index];
+    if (a[index] !== b[index]) return a[index] < b[index] ? -1 : 1;
   }
-  if (a[3] === b[3]) return 0;
-  if (!a[3]) return 1;
-  if (!b[3]) return -1;
-  return String(a[3]).localeCompare(String(b[3]), 'en', { numeric: true });
+  const aPre = a[3];
+  const bPre = b[3];
+  if (!aPre.length && !bPre.length) return 0;
+  if (!aPre.length) return 1;
+  if (!bPre.length) return -1;
+  for (let index = 0; index < Math.min(aPre.length, bPre.length); index += 1) {
+    const leftPart = aPre[index];
+    const rightPart = bPre[index];
+    if (leftPart === rightPart) continue;
+    const leftNumeric = /^\d+$/.test(leftPart);
+    const rightNumeric = /^\d+$/.test(rightPart);
+    if (leftNumeric && rightNumeric) return BigInt(leftPart) < BigInt(rightPart) ? -1 : 1;
+    if (leftNumeric !== rightNumeric) return leftNumeric ? -1 : 1;
+    return leftPart < rightPart ? -1 : 1;
+  }
+  if (aPre.length === bPre.length) return 0;
+  return aPre.length < bPre.length ? -1 : 1;
 }
 
 function moduleId(moduleInfo) {
@@ -279,15 +302,260 @@ export function transitionOfficialModuleState(state, event) {
   return current;
 }
 
+export function recoverOfficialModuleState(state, { message = '', failed = false } = {}) {
+  const current = createOfficialModuleState(state);
+  return createOfficialModuleState({
+    ...current,
+    phase: failed
+      ? 'failed'
+      : safeObjects(current.catalog?.modules).length ? 'cache_ready' : 'empty',
+    selected: null,
+    selectedAction: '',
+    message: String(message || current.message || ''),
+  });
+}
+
 function officialModuleKey(moduleInfo) {
   return `${moduleInfo.module_id || ''}@${moduleInfo.version || ''}`;
 }
 
-function officialInstallCandidates(catalog) {
-  return safeObjects(catalog?.modules).filter((moduleInfo) => (
-    !moduleInfo.installed_version
-    && safeStrings(moduleInfo.available_actions).includes('install_official')
-  ));
+function trustedOfficialCatalog(catalog) {
+  return catalog?.source?.owner === 'songshu-yu'
+    && catalog?.source?.repository === 'Project-Kei-Modules';
+}
+
+function strictRegistryModuleId(moduleInfo) {
+  const id = moduleInfo?.module_id;
+  return typeof id === 'string' && localModuleIdPattern.test(id) ? id : '';
+}
+
+function indexInstalledRegistry(installedCatalog) {
+  const records = new Map();
+  const conflicts = new Set();
+  const seenIds = new Set();
+  safeObjects(installedCatalog?.modules).forEach((item) => {
+    const id = strictRegistryModuleId(item);
+    if (!id) return;
+    if (seenIds.has(id)) conflicts.add(id);
+    else seenIds.add(id);
+    if (typeof item.installed_version === 'string' && item.installed_version.trim() && !records.has(id)) {
+      records.set(id, item);
+    }
+  });
+  return { records, conflicts };
+}
+
+export function reconcileOfficialModules(catalog, installedCatalog) {
+  const releases = safeObjects(catalog?.modules);
+  const registryReady = Boolean(installedCatalog && Array.isArray(installedCatalog.modules));
+  const installedRegistry = indexInstalledRegistry(installedCatalog);
+  const groups = new Map();
+  releases.forEach((item) => {
+    const id = String(item.module_id || '');
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(item);
+  });
+  const reconciled = [];
+  groups.forEach((items, id) => {
+    const officialIdentityValid = localModuleIdPattern.test(id);
+    const registryConflict = officialIdentityValid && installedRegistry.conflicts.has(id);
+    const local = officialIdentityValid && !registryConflict
+      ? installedRegistry.records.get(id)
+      : null;
+    const valid = items.filter((item) => {
+      try {
+        compareModuleVersions(item.version, item.version);
+        return true;
+      } catch (_error) {
+        return false;
+      }
+    });
+    let localVersionValid = true;
+    if (local) {
+      try {
+        compareModuleVersions(local.installed_version, local.installed_version);
+      } catch (_error) {
+        localVersionValid = false;
+      }
+    }
+    const sourceConflict = Boolean(local) && (
+      !isManagedInstall(local) || local.package_source !== 'official_github_release'
+    );
+    const eligible = valid.filter((item) => item.compatible !== false);
+    const action = local ? 'update_official' : 'install_official';
+    const actionAllowed = local
+      ? safeStrings(local.available_actions).includes(action)
+      : true;
+    const actionable = eligible.filter((item) => (
+      safeStrings(item.available_actions).includes(action)
+      && (!local || (localVersionValid && compareModuleVersions(item.version, local.installed_version) > 0))
+    ));
+    const target = actionAllowed && actionable.length
+      ? actionable.slice().sort((left, right) => compareModuleVersions(right.version, left.version))[0]
+      : null;
+    items.forEach((item) => {
+      let state = 'unavailable';
+      let label = '当前不可操作';
+      if (!registryReady) {
+        state = 'registry_unavailable';
+        label = '等待本机模块目录';
+      } else if (!trustedOfficialCatalog(catalog)) {
+        state = 'source_untrusted';
+        label = '官方来源校验失败';
+      } else if (!officialIdentityValid) {
+        state = 'identity_invalid';
+        label = '官方 module_id 无效';
+      } else if (registryConflict) {
+        state = 'registry_conflict';
+        label = '本机 registry 身份冲突，拒绝操作';
+      } else if (!valid.includes(item) || (local && !localVersionValid)) {
+        state = 'invalid_version';
+        label = '版本信息无效';
+      } else if (sourceConflict) {
+        state = 'source_conflict';
+        label = '本机来源冲突，拒绝覆盖';
+      } else if (item.compatible === false) {
+        state = 'incompatible';
+        label = '当前 Core 不兼容';
+      } else if (!local) {
+        if (target === item) {
+          state = 'install';
+          label = '可下载并安装';
+        } else {
+          state = 'superseded';
+          label = '已有更高兼容版本';
+        }
+      } else {
+        const comparison = compareModuleVersions(item.version, local.installed_version);
+        if (comparison === 0) {
+          state = 'installed';
+          label = '已安装';
+        } else if (comparison < 0) {
+          state = 'local_newer';
+          label = '本机版本较新';
+        } else if (target === item) {
+          state = 'update';
+          label = '可下载并更新';
+        } else if (!actionAllowed || !safeStrings(item.available_actions).includes(action)) {
+          state = 'update_unavailable';
+          label = 'Core 当前不允许更新';
+        } else {
+          state = 'superseded';
+          label = '已有更高兼容版本';
+        }
+      }
+      reconciled.push(Object.freeze({ ...item, local_module: local || null, comparison_state: state, comparison_label: label }));
+    });
+  });
+  return Object.freeze(reconciled);
+}
+
+function officialInstallCandidates(catalog, installedCatalog) {
+  return reconcileOfficialModules(catalog, installedCatalog)
+    .filter((moduleInfo) => moduleInfo.comparison_state === 'install');
+}
+
+function batchPlanError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+export function buildOfficialBatchPlan(catalog, installedCatalog, selectedKeys) {
+  const selected = new Set(safeStrings(Array.from(selectedKeys || [])));
+  if (!selected.size) throw batchPlanError('batch_selection_empty', '请至少选择一个兼容模块');
+  const candidates = officialInstallCandidates(catalog, installedCatalog);
+  const byKey = new Map(candidates.map((item) => [officialModuleKey(item), item]));
+  const allByKey = new Map(
+    reconcileOfficialModules(catalog, installedCatalog).map((item) => [officialModuleKey(item), item]),
+  );
+  const chosenById = new Map();
+  selected.forEach((key) => {
+    const item = byKey.get(key);
+    if (!item) {
+      const unavailable = allByKey.get(key);
+      if (unavailable?.comparison_state === 'incompatible') {
+        throw batchPlanError('batch_module_incompatible', `${unavailable.module_id} 与当前 Core 不兼容`);
+      }
+      throw batchPlanError('batch_selection_stale', `所选模块 ${key} 已不可安装，请重新选择`);
+    }
+    if (chosenById.has(item.module_id)) {
+      throw batchPlanError('batch_version_ambiguous', `${item.module_id} 同时选择了多个版本`);
+    }
+    chosenById.set(item.module_id, item);
+  });
+  const installedRegistry = indexInstalledRegistry(installedCatalog);
+  const installed = new Set(
+    Array.from(installedRegistry.records)
+      .filter(([id, item]) => !installedRegistry.conflicts.has(id) && isManagedInstall(item))
+      .map(([id]) => id),
+  );
+  const outgoing = new Map(Array.from(chosenById, ([id]) => [id, []]));
+  const indegree = new Map(Array.from(chosenById, ([id]) => [id, 0]));
+  chosenById.forEach((item, id) => {
+    safeStrings(item.dependencies).forEach((dependencyId) => {
+      if (installed.has(dependencyId)) return;
+      if (!chosenById.has(dependencyId)) {
+        throw batchPlanError(
+          'batch_dependency_missing',
+          `${id} 需要先安装 ${dependencyId}；请把依赖一并选中`,
+        );
+      }
+      outgoing.get(dependencyId).push(id);
+      indegree.set(id, indegree.get(id) + 1);
+    });
+  });
+  const ready = Array.from(indegree)
+    .filter(([, degree]) => degree === 0)
+    .map(([id]) => id)
+    .sort();
+  const queue = [];
+  while (ready.length) {
+    const id = ready.shift();
+    queue.push(chosenById.get(id));
+    outgoing.get(id).sort().forEach((dependentId) => {
+      const next = indegree.get(dependentId) - 1;
+      indegree.set(dependentId, next);
+      if (next === 0) {
+        ready.push(dependentId);
+        ready.sort();
+      }
+    });
+  }
+  if (queue.length !== chosenById.size) {
+    throw batchPlanError('batch_dependency_cycle', '所选模块的必需依赖存在循环，未发送任何安装请求');
+  }
+  return Object.freeze({
+    queue: Object.freeze(queue),
+    totalBytes: queue.reduce((total, item) => total + (Number(item.package_size) || 0), 0),
+    dependencies: Object.freeze(Array.from(new Set(queue.flatMap((item) => safeStrings(item.dependencies)))).sort()),
+    permissions: Object.freeze(Array.from(new Set(queue.flatMap((item) => safeStrings(item.permissions)))).sort()),
+  });
+}
+
+export async function runOfficialBatchQueue(queue, installOne) {
+  const completed = [];
+  const items = Array.from(queue || []);
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    try {
+      await installOne(item, index, items.length);
+      completed.push(item);
+    } catch (error) {
+      return Object.freeze({
+        completed: Object.freeze(completed),
+        failed: item,
+        remaining: Object.freeze(items.slice(index + 1)),
+        error,
+      });
+    }
+  }
+  return Object.freeze({
+    completed: Object.freeze(completed),
+    failed: null,
+    remaining: Object.freeze([]),
+    error: null,
+  });
 }
 
 function renderOfficialPhase(state) {
@@ -320,11 +588,11 @@ function renderOfficialPhase(state) {
   status.dataset.networkAccessed = networkAccessed ? 'true' : 'false';
 }
 
-function renderOfficialModules(state) {
+function renderOfficialModules(state, installedCatalog, batchMode = false, selectedKeys = new Set()) {
   const root = document.querySelector('#official-module-catalog');
   if (!root) return;
   root.replaceChildren();
-  const modules = officialInstallCandidates(state.catalog);
+  const modules = reconcileOfficialModules(state.catalog, installedCatalog);
   if (!modules.length) {
     appendText(
       root,
@@ -340,6 +608,20 @@ function renderOfficialModules(state) {
     card.dataset.officialModule = officialModuleKey(moduleInfo);
     const head = document.createElement('div');
     head.className = 'module-card-head';
+    if (batchMode && moduleInfo.comparison_state === 'install') {
+      const choice = document.createElement('label');
+      choice.className = 'official-module-choice';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.dataset.officialBatchChoice = officialModuleKey(moduleInfo);
+      checkbox.checked = selectedKeys.has(officialModuleKey(moduleInfo));
+      checkbox.disabled = interactionBlockedPhases.has(state.phase);
+      const choiceText = document.createElement('span');
+      choiceText.className = 'visually-hidden';
+      choiceText.textContent = `选择 ${moduleInfo.name || moduleInfo.module_id} ${moduleInfo.version}`;
+      choice.append(checkbox, choiceText);
+      head.append(choice);
+    }
     const heading = document.createElement('div');
     appendText(heading, 'strong', moduleInfo.name || moduleInfo.module_id || '未命名模块');
     appendText(heading, 'div', moduleInfo.module_id || '未知 ID', 'module-card-id');
@@ -348,11 +630,15 @@ function renderOfficialModules(state) {
     head.prepend(heading);
     card.append(head);
     appendMeta(card, 'Core 兼容', moduleInfo.core_compatibility || '未声明');
+    appendMeta(card, '版本状态', moduleInfo.comparison_label);
+    if (moduleInfo.local_module?.installed_version) {
+      appendMeta(card, '本机版本', moduleInfo.local_module.installed_version);
+    }
     appendMeta(card, '包大小', formatBytes(moduleInfo.package_size));
     appendMeta(
       card,
       '官方来源',
-      `${officialRepositoryLabel} · ${moduleInfo.release_tag || 'Release'} · ${moduleInfo.asset_name || 'ZIP'}`,
+      `${officialCatalogSourceLabel(state.catalog)} · ${moduleInfo.release_tag || 'Release'} · ${moduleInfo.asset_name || 'ZIP'}`,
     );
     appendMeta(card, '包 SHA-256', moduleInfo.package_sha256 || '未提供', 'module-digest');
     appendMeta(card, '必需依赖', listText(moduleInfo.dependencies));
@@ -368,16 +654,25 @@ function renderOfficialModules(state) {
       : '通常不需要');
     const actions = document.createElement('div');
     actions.className = 'module-management-actions';
-    const install = appendText(actions, 'button', '下载并安装');
+    const operation = moduleInfo.comparison_state === 'install'
+      ? 'install_official'
+      : moduleInfo.comparison_state === 'update' ? 'update_official' : '';
+    const label = operation === 'install_official'
+      ? '下载并安装'
+      : operation === 'update_official' ? '下载并更新' : moduleInfo.comparison_label;
+    const install = appendText(actions, 'button', label, operation ? '' : 'secondary');
     install.type = 'button';
-    install.dataset.officialInstall = officialModuleKey(moduleInfo);
-    install.disabled = !['cache_ready', 'failed'].includes(state.phase)
-      || moduleInfo.compatible === false;
+    if (operation) {
+      install.dataset.officialOperation = officialModuleKey(moduleInfo);
+      install.dataset.officialAction = operation;
+    }
+    install.disabled = !operation || !['cache_ready', 'failed'].includes(state.phase);
+    install.hidden = batchMode;
     install.setAttribute(
       'aria-label',
-      `下载并安装 ${moduleInfo.name || moduleInfo.module_id || '模块'} ${moduleInfo.version || ''}`,
+      `${label} ${moduleInfo.name || moduleInfo.module_id || '模块'} ${moduleInfo.version || ''}`,
     );
-    if (moduleInfo.compatible === false) install.title = '当前 Core 版本不兼容';
+    if (!operation) install.title = moduleInfo.comparison_label;
     card.append(actions);
     root.append(card);
   });
@@ -504,15 +799,18 @@ function renderInstalledCard(moduleInfo, busyModules, officialCatalog) {
     button.disabled = busyModules.has(id);
     if (action === 'uninstall') button.classList.add('warning-action');
     if (action === 'update_official') {
-      const target = releases
-        .filter((release) => compareModuleVersions(release.version, moduleInfo.installed_version) > 0)
-        .sort((left, right) => compareModuleVersions(right.version, left.version))[0];
+      const target = reconcileOfficialModules(officialCatalog, { modules: [moduleInfo] })
+        .find((release) => release.module_id === id && release.comparison_state === 'update');
       if (target) button.dataset.officialTarget = officialModuleKey(target);
       else {
         button.disabled = true;
-        button.textContent = '暂无目录更新';
-        button.setAttribute('aria-label', `${moduleInfo.name || id} 暂无目录更新`);
-        button.title = '目录缓存中没有其他受信版本';
+        button.textContent = moduleInfo.package_source === 'official_github_release'
+          ? '暂无目录更新'
+          : '官方更新不可用';
+        button.setAttribute('aria-label', `${moduleInfo.name || id} 官方更新不可用`);
+        button.title = moduleInfo.package_source === 'official_github_release'
+          ? '目录缓存中没有合法的更高兼容版本'
+          : '本机模块不是官方受管来源，控制台拒绝自动覆盖';
       }
     }
     if (action === 'rollback_official') {
@@ -669,7 +967,7 @@ function lifecycleRequest(request, id, action, confirmation = '') {
   throw new Error('当前操作没有安全的公共契约');
 }
 
-function officialRequest(request, moduleInfo, action) {
+export function officialRequest(request, moduleInfo, action) {
   const id = String(moduleInfo.module_id || '');
   const version = String(moduleInfo.version || '');
   const actionPath = {
@@ -747,6 +1045,9 @@ export function setupModuleManagement({
     ? 'manual'
     : 'empty';
   let localUploadSelectionVersion = 0;
+  let batchMode = false;
+  let batchBusy = false;
+  const batchSelection = new Set();
 
   function setLocalModuleId(value, origin) {
     const input = document.querySelector('#local-module-id');
@@ -848,12 +1149,35 @@ export function setupModuleManagement({
   }
 
   function renderOfficial() {
+    const validBatchKeys = new Set(
+      officialInstallCandidates(officialState.catalog, lastCatalog).map(officialModuleKey),
+    );
+    Array.from(batchSelection).forEach((key) => {
+      if (!validBatchKeys.has(key)) batchSelection.delete(key);
+    });
     renderOfficialPhase(officialState);
-    renderOfficialModules(officialState);
+    renderOfficialModules(officialState, lastCatalog, batchMode, batchSelection);
     const refresh = document.querySelector('#refresh-official-module-catalog');
     if (refresh) {
-      refresh.disabled = interactionBlockedPhases.has(officialState.phase);
+      refresh.disabled = batchBusy || interactionBlockedPhases.has(officialState.phase);
       refresh.setAttribute('aria-busy', officialState.phase === 'refreshing' ? 'true' : 'false');
+    }
+    const toggle = document.querySelector('#toggle-official-module-batch');
+    const toolbar = document.querySelector('#official-module-batch-toolbar');
+    const count = document.querySelector('#official-module-batch-count');
+    const install = document.querySelector('#install-selected-official-modules');
+    if (toggle) {
+      toggle.textContent = batchMode ? '取消批量选择' : '批量选择';
+      toggle.setAttribute('aria-pressed', batchMode ? 'true' : 'false');
+      toggle.disabled = batchBusy || interactionBlockedPhases.has(officialState.phase);
+    }
+    if (toolbar) toolbar.hidden = !batchMode;
+    if (count) count.textContent = `已选择 ${batchSelection.size} 项`;
+    if (install) {
+      install.disabled = batchBusy || batchSelection.size === 0
+        || interactionBlockedPhases.has(officialState.phase);
+      install.setAttribute('aria-busy', batchBusy ? 'true' : 'false');
+      install.textContent = batchBusy ? '正在依次安装…' : '安装已选';
     }
   }
 
@@ -881,12 +1205,44 @@ export function setupModuleManagement({
       const catalog = await request('/api/v1/modules', { cache: 'no-store' });
       rememberCatalog(catalog);
       renderInstalled();
+      renderOfficial();
       await reconcileInstalled(catalog);
       return catalog;
     } catch (error) {
       renderInstalledModulesError(operationError(error));
       throw error;
     }
+  }
+
+  async function reloadLocalModuleViews(message) {
+    const warnings = [];
+    try {
+      await refreshInstalled();
+    } catch (error) {
+      warnings.push(`本机模块列表刷新失败：${operationError(error)}`);
+    }
+    try {
+      const catalog = await request('/api/v1/modules/official-catalog', { cache: 'no-store' });
+      officialState = transitionOfficialModuleState(officialState, {
+        type: 'CACHE_READY',
+        catalog,
+        message: [message, ...warnings].filter(Boolean).join('；'),
+      });
+      renderInstalled();
+      refreshLocalModuleSuggestions();
+    } catch (error) {
+      warnings.push(`官方目录本机缓存刷新失败：${operationError(error)}`);
+      officialState = recoverOfficialModuleState(officialState, {
+        failed: true,
+        message: [message, ...warnings, '可手动刷新后继续操作'].filter(Boolean).join('；'),
+      });
+    } finally {
+      if (interactionBlockedPhases.has(officialState.phase) || officialState.phase === 'success') {
+        officialState = recoverOfficialModuleState(officialState);
+      }
+      renderOfficial();
+    }
+    return warnings;
   }
 
   async function readOfficialCache() {
@@ -998,15 +1354,7 @@ export function setupModuleManagement({
         message: `已${verb} ${officialModuleKey(moduleInfo)}；模块不会被静默启用${restartInstruction(response)}`,
       });
       renderOfficial();
-      try {
-        await refreshInstalled();
-      } catch (_error) {
-        officialState = createOfficialModuleState({
-          ...officialState,
-          message: `${officialState.message}；本机目录刷新失败，请手动刷新`,
-        });
-        renderOfficial();
-      }
+      await reloadLocalModuleViews(officialState.message);
       notify(`官方模块${verb}完成；请在“已安装模块”中显式启用。`, 'success');
     } catch (error) {
       officialState = transitionOfficialModuleState(officialState, {
@@ -1015,6 +1363,107 @@ export function setupModuleManagement({
       });
       renderOfficial();
       notify('官方模块操作失败；旧模块和其他卡片不受影响。', 'error');
+    } finally {
+      if (interactionBlockedPhases.has(officialState.phase) || officialState.phase === 'success') {
+        officialState = recoverOfficialModuleState(officialState);
+        renderOfficial();
+      }
+    }
+  }
+
+  function setBatchMode(enabled) {
+    if (batchBusy) return;
+    batchMode = Boolean(enabled);
+    batchSelection.clear();
+    renderOfficial();
+  }
+
+  function selectAllCompatibleOfficialModules() {
+    batchSelection.clear();
+    officialInstallCandidates(officialState.catalog, lastCatalog)
+      .forEach((item) => batchSelection.add(officialModuleKey(item)));
+    renderOfficial();
+  }
+
+  function openOfficialBatchConfirmation() {
+    let plan;
+    try {
+      plan = buildOfficialBatchPlan(officialState.catalog, lastCatalog, batchSelection);
+    } catch (error) {
+      officialState = createOfficialModuleState({
+        ...officialState,
+        phase: 'failed',
+        message: `${operationError(error)}；未发送任何安装请求`,
+      });
+      renderOfficial();
+      notify('批量安装计划无效；未发送任何安装请求。', 'error');
+      return;
+    }
+    const dialog = document.querySelector('#official-module-batch-confirmation');
+    const summary = document.querySelector('#official-module-batch-summary');
+    const list = document.querySelector('#official-module-batch-list');
+    if (!dialog || !summary || !list || typeof dialog.showModal !== 'function') return;
+    summary.textContent = `固定来源：${officialCatalogSourceLabel(officialState.catalog)}；${plan.queue.length} 个模块；总大小 ${formatBytes(plan.totalBytes)}；必需依赖：${listText(plan.dependencies)}；权限：${listText(plan.permissions)}。Core 会逐包独立校验，安装后不会自动启用或重启。`;
+    list.replaceChildren(...plan.queue.map((item, index) => {
+      const row = document.createElement('li');
+      row.textContent = `${index + 1}. ${item.name || item.module_id} ${item.version}`;
+      return row;
+    }));
+    dialog.dataset.batchPlan = JSON.stringify(plan.queue.map(officialModuleKey));
+    dialog.showModal();
+    dialog.querySelector('[data-confirm-official-batch]')?.focus();
+  }
+
+  async function runOfficialBatch(planKeys) {
+    if (batchBusy || interactionBlockedPhases.has(officialState.phase)) return;
+    let plan;
+    try {
+      plan = buildOfficialBatchPlan(officialState.catalog, lastCatalog, planKeys);
+    } catch (error) {
+      officialState = createOfficialModuleState({ ...officialState, phase: 'failed', message: operationError(error) });
+      renderOfficial();
+      return;
+    }
+    batchBusy = true;
+    officialState = transitionOfficialModuleState(officialState, { type: 'DOWNLOAD' });
+    renderOfficial();
+    let result;
+    try {
+      result = await runOfficialBatchQueue(plan.queue, async (item, index, total) => {
+        officialState = createOfficialModuleState({
+          ...officialState,
+          phase: 'installing',
+          message: `正在安装 ${index + 1}/${total}：${officialModuleKey(item)}`,
+        });
+        renderOfficial();
+        await officialRequest(request, item, 'install_official');
+      });
+      const completed = result.completed.map(officialModuleKey);
+      const remaining = result.remaining.map(officialModuleKey);
+      const report = result.failed
+        ? `批量安装已停止；已完成：${listText(completed)}；失败：${officialModuleKey(result.failed)}（${operationError(result.error)}）；未执行：${listText(remaining)}`
+        : `批量安装完成：${listText(completed)}；模块不会被自动启用或重启`;
+      officialState = createOfficialModuleState({
+        ...officialState,
+        phase: result.failed ? 'failed' : 'success',
+        message: report,
+      });
+      await reloadLocalModuleViews(report);
+      if (result.failed) {
+        batchSelection.clear();
+        result.remaining.forEach((item) => batchSelection.add(officialModuleKey(item)));
+        notify('批量安装遇到失败并已停止；已完成模块不会回滚。', 'error');
+      } else {
+        batchMode = false;
+        batchSelection.clear();
+        notify('所选官方模块已依次安装；请按需逐个启用。', 'success');
+      }
+    } finally {
+      batchBusy = false;
+      if (interactionBlockedPhases.has(officialState.phase) || officialState.phase === 'success') {
+        officialState = recoverOfficialModuleState(officialState);
+      }
+      renderOfficial();
     }
   }
 
@@ -1206,6 +1655,26 @@ export function setupModuleManagement({
     () => void refreshOfficialCatalog(),
     { signal: abortController.signal },
   );
+  document.querySelector('#toggle-official-module-batch')?.addEventListener(
+    'click',
+    () => setBatchMode(!batchMode),
+    { signal: abortController.signal },
+  );
+  document.querySelector('#select-all-official-modules')?.addEventListener(
+    'click',
+    selectAllCompatibleOfficialModules,
+    { signal: abortController.signal },
+  );
+  document.querySelector('#cancel-official-module-batch')?.addEventListener(
+    'click',
+    () => setBatchMode(false),
+    { signal: abortController.signal },
+  );
+  document.querySelector('#install-selected-official-modules')?.addEventListener(
+    'click',
+    openOfficialBatchConfirmation,
+    { signal: abortController.signal },
+  );
   document.querySelector('#local-module-id')?.addEventListener(
     'input',
     (event) => {
@@ -1275,11 +1744,21 @@ export function setupModuleManagement({
   }, { signal: abortController.signal });
 
   document.querySelector('#official-module-catalog')?.addEventListener('click', (event) => {
-    const install = event.target.closest('[data-official-install]');
+    const install = event.target.closest('[data-official-operation]');
     if (!install || interactionBlockedPhases.has(officialState.phase)) return;
-    const selected = officialInstallCandidates(officialState.catalog)
-      .find((moduleInfo) => officialModuleKey(moduleInfo) === install.dataset.officialInstall);
-    if (selected) openOfficialConfirmation(selected, 'install_official');
+    const selected = reconcileOfficialModules(officialState.catalog, lastCatalog)
+      .find((moduleInfo) => officialModuleKey(moduleInfo) === install.dataset.officialOperation);
+    if (selected && ['install_official', 'update_official'].includes(install.dataset.officialAction)) {
+      openOfficialConfirmation(selected, install.dataset.officialAction);
+    }
+  }, { signal: abortController.signal });
+
+  document.querySelector('#official-module-catalog')?.addEventListener('change', (event) => {
+    const choice = event.target.closest('[data-official-batch-choice]');
+    if (!choice || !batchMode || batchBusy) return;
+    if (choice.checked) batchSelection.add(choice.dataset.officialBatchChoice);
+    else batchSelection.delete(choice.dataset.officialBatchChoice);
+    renderOfficial();
   }, { signal: abortController.signal });
 
   document.querySelector('#official-module-install-confirmation')?.addEventListener('click', (event) => {
@@ -1300,6 +1779,33 @@ export function setupModuleManagement({
       confirmation.replaceChildren();
       renderOfficial();
     }
+  }, { signal: abortController.signal });
+
+  document.querySelector('#official-module-batch-confirmation')?.addEventListener('click', (event) => {
+    const dialog = event.currentTarget;
+    if (event.target.closest('[data-cancel-official-batch-confirmation]')) {
+      dialog.close();
+      return;
+    }
+    if (event.target.closest('[data-confirm-official-batch]')) {
+      let keys = [];
+      try {
+        keys = JSON.parse(dialog.dataset.batchPlan || '[]');
+      } catch (_error) {
+        keys = [];
+      }
+      dialog.close();
+      void runOfficialBatch(keys);
+    }
+  }, { signal: abortController.signal });
+  document.querySelector('#official-module-batch-confirmation')?.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    event.currentTarget.close();
+  }, { signal: abortController.signal });
+  document.querySelector('#official-module-batch-confirmation')?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.currentTarget.close();
   }, { signal: abortController.signal });
 
   renderOfficial();

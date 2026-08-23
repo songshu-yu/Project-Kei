@@ -92,6 +92,24 @@ _MODULES: Tuple[Dict[str, Any], ...] = (
         "failure_mode": "per-source isolation with redacted coverage; failed refresh reuses old cache and main+narration commit together with rollback; rewrite/voice return explicit fallback/degradation",
     },
     {
+        "key": "life_forecast",
+        "label": "每日生活预报",
+        "task_id": "PK-240",
+        "task_file": "tasks/PK-240-daily-life-forecast.md",
+        "process": "main-api",
+        "current_endpoints": [
+            "/api/v1/life-forecast/today",
+            "/api/v1/life-forecast/config",
+            "/api/v1/life-forecast/refresh",
+        ],
+        "target_namespace": "/api/v1/life-forecast",
+        "migration_status": "installable",
+        "data_owner": "life_forecast:ignored server/data/modules/life_forecast private location configuration and date-keyed normalized cache",
+        "secret_owner": "Provider API keys, if a future adapter needs one, are environment/local-secret only and never returned",
+        "network_side_effects": "fixed Open-Meteo weather/air-quality HTTPS only on explicit refresh after local Provider selection; page load, config save, cache reads and local entertainment are upstream-network-free",
+        "failure_mode": "provider errors and invalid units/timezones fail closed; AQ/UV gaps are unavailable; failed atomic save preserves old cache; stale dates are never returned as today",
+    },
+    {
         "key": "intel_sources",
         "label": "每日情报来源注册表与配置",
         "task_id": "PK-115",
@@ -574,6 +592,18 @@ def get_module_catalog(lifecycle_snapshot: Any = _LIFECYCLE_SNAPSHOT_UNSET) -> D
                     "/calendar/practice",
                     "/calendar/reset",
                 ],
+            })
+        if key == "life_forecast":
+            item.update({
+                "managed": True,
+                "source": "local_package",
+                "install_status": "available",
+                "enabled": False,
+                "permissions": ["local_state", "network_download"],
+                "requires_restart": True,
+                "api_namespaces": ["/api/v1/life-forecast"],
+                "legacy_endpoints": [],
+                "available_actions": ["install_local"],
             })
         if key == "conversation":
             item.update({

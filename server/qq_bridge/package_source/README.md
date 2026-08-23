@@ -18,7 +18,8 @@ uses the existing persistent local configuration and state roots:
 Updating or uninstalling the program package does not remove either path.
 Readiness may check that `.env` exists, but it does not read or return its
 values. The module-owned local configuration form can explicitly create or
-update only `QQBOT_APPID` and `QQBOT_SECRET` at that fixed path. It preserves
+update `QQBOT_APPID`, `QQBOT_SECRET` and the reviewed non-secret switches at
+that fixed path. It preserves
 other fields, writes atomically, never returns the Secret and never stores
 credentials in browser storage. A blank Secret preserves an existing value.
 
@@ -32,6 +33,8 @@ configuration or locked dependencies does not affect Core or other modules.
 
 The dashboard can read non-secret readiness, save the two QQ credential fields,
 explicitly opt in or out of `QQBOT_REPLY_WITH_VOICE`,
+explicitly opt in or out of read-only life forecast queries with
+`QQBOT_LIFE_FORECAST_ENABLED` (default `false`),
 declare `QQBOT_MEDIA_UPLOAD_CAPABILITY` as
 `unknown|available|unavailable|denied` (default `unknown`; an operator
 declaration rather than an automatic permission probe),
@@ -52,6 +55,11 @@ joins PCM/WAV, chooses codec parameters or persists audio/file metadata.
 The synthesis request, response headers, streamed body and final validation
 share one deadline. Actual bytes are counted while streaming; the reader is
 cancelled immediately above 8 MiB, including when Content-Length is deceptive.
+
+Life forecast queries use only the fixed `kei:life-forecast` menu action and
+four exact Chinese keywords. When enabled, each query performs at most one
+local `GET /api/v1/life-forecast/today`; it never refreshes weather, writes a
+forecast cache, or adds a scheduler. Broad weather chat remains conversation.
 
 Version 0.1.10 separates operating-system process health from QQ Gateway
 health. The dashboard reports the process and the redacted Gateway state
@@ -125,6 +133,11 @@ The sidecar publishes only a bounded PID and random generation marker. A new Cor
 match that PID to the fixed reviewed `src/index.mjs` entry before it may write one fresh,
 generation-bound shutdown request. The sidecar rejects stale, replayed, malformed,
 oversized and symbolic-link requests; no broad Node or port-based termination is used.
+
+Version 0.1.25 adds the default-off daily life forecast consumer. Version 0.1.26 keeps
+the four exact text keywords cache-only, while the fixed menu button is the sole explicit
+refresh action: it makes one fixed local refresh POST and directly formats that response.
+There is no broad weather interception, automatic refresh, extra persistence or scheduler.
 
 Version 0.1.22 made sidecar launch explicitly user initiated. Enabling, installing or
 updating the module, starting Core, loading or expanding the dashboard, and refreshing

@@ -65,6 +65,7 @@ def main() -> int:
     assert len(task_ids) == len(set(task_ids))
     assert "catalog" in keys and "module_manager" in keys
     assert "x_monitor" in keys and "demon_slayer" in keys
+    assert "life_forecast" in keys
     assert all(key in keys for key in (
         "intel_sources", "bilibili", "youtube", "github_intel", "papers", "rss_intel"
     ))
@@ -145,6 +146,14 @@ def main() -> int:
     assert "/api/v1/voice-control/asr/start" in voice.legacy_endpoints
     assert "/api/v1/voice-control/gpt-sovits/start" in voice.legacy_endpoints
     assert voice.data_owner and "server/output/voice_replies" in voice.data_owner
+
+    life_forecast = next(module for module in modules if module.key == "life_forecast")
+    assert life_forecast.task_id == "PK-240" and life_forecast.type == "in_process"
+    assert life_forecast.target_namespace == "/api/v1/life-forecast"
+    assert life_forecast.install_status == "available" and life_forecast.enabled is False
+    assert life_forecast.permissions == ["local_state", "network_download"]
+    assert life_forecast.data_owner and "server/data/modules/life_forecast" in life_forecast.data_owner
+    assert life_forecast.network_side_effects and "explicit refresh" in life_forecast.network_side_effects
 
     engine = next(module for module in modules if module.key == "gpt_sovits_engine_provider")
     assert engine.task_id == "PK-211" and engine.type == "sidecar"

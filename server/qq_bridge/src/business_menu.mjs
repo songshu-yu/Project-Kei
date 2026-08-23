@@ -35,6 +35,8 @@ export const BUSINESS_API_OPERATIONS = Object.freeze({
   calendarStatus: Object.freeze({ method: "GET", path: "/api/v1/calendar/status" }),
   calendarEvent: Object.freeze({ method: "POST", path: "/api/v1/calendar/events" }),
   calendarPractice: Object.freeze({ method: "POST", path: "/api/v1/calendar/practice" }),
+  lifeForecastToday: Object.freeze({ method: "GET", path: "/api/v1/life-forecast/today" }),
+  lifeForecastRefresh: Object.freeze({ method: "POST", path: "/api/v1/life-forecast/refresh" }),
 });
 
 export const BUSINESS_ACTIONS = Object.freeze({
@@ -58,15 +60,22 @@ export const BUSINESS_ACTIONS = Object.freeze({
   calendarMenu: "kei:menu:calendar",
   calendarToday: "kei:calendar:today",
   calendarPractice: "kei:calendar:practice",
+  lifeForecast: "kei:life-forecast",
 });
 
 const STATIC_ACTIONS = new Set(Object.values(BUSINESS_ACTIONS));
 const GOAL_ACTION = /^kei:demon:goal:(done|missed):([A-Za-z0-9_-]{1,64})$/;
 const PENDING_GOAL_ACTION = /^kei:demon:add:(confirm|cancel):([A-Za-z0-9_-]{1,64})$/;
+const LIFE_FORECAST_KEYWORDS = new Set([
+  "每日生活预报",
+  "今日生活预报",
+  "生活预报",
+  "今日天气预报",
+]);
 
 function safeVisible(value, maxLength = 160) {
   const text = String(value ?? "")
-    .replace(/\b(authorization|cookie|token|secret|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi, "$1=[redacted]")
+    .replace(/\b(authorization|cookie|token|secret|api[_-]?key)\s*[:=]\s*(?:bearer\s+)?[^\s,;]+/gi, "$1=[redacted]")
     .replace(/\bbearer\s+[a-z0-9._~+\/-]+/gi, "Bearer [redacted]")
     .replace(/[A-Za-z]:\\[^\s]+/g, "[internal-path]")
     .replace(/\/(?:home|Users|var|tmp)\/[^\s]+/g, "[internal-path]")
@@ -77,7 +86,7 @@ function safeVisible(value, maxLength = 160) {
 
 function safeMultiline(value, maxLength = 4000) {
   const text = String(value ?? "")
-    .replace(/\b(authorization|cookie|token|secret|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi, "$1=[redacted]")
+    .replace(/\b(authorization|cookie|token|secret|api[_-]?key)\s*[:=]\s*(?:bearer\s+)?[^\s,;]+/gi, "$1=[redacted]")
     .replace(/\bbearer\s+[a-z0-9._~+\/-]+/gi, "Bearer [redacted]")
     .replace(/[A-Za-z]:\\[^\s]+/g, "[internal-path]")
     .replace(/\/(?:home|Users|var|tmp)\/[^\s]+/g, "[internal-path]")
@@ -152,7 +161,92 @@ export function mainMenuCard() {
       button("kei-focus-menu", "专注计时", BUSINESS_ACTIONS.focusMenu),
     ],
     [button("kei-calendar-menu", "日历与修炼", BUSINESS_ACTIONS.calendarMenu)],
+    [button("kei-life-forecast", "生活预报", BUSINESS_ACTIONS.lifeForecast, 1)],
   ]);
+}
+
+function strictFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function localDate(nowValue) {
+  const value = new Date(nowValue);
+  if (!Number.isFinite(value.getTime())) return "";
+  const year = String(value.getFullYear()).padStart(4, "0");
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatLifeForecast(body, today) {
+  const forecast = body?.forecast;
+  const advice = body?.life_advice;
+  const fortune = body?.fortune;
+  if (
+    body?.cache_status !== "available"
+    || !forecast || typeof forecast !== "object" || Array.isArray(forecast)
+    || !advice || typeof advice !== "object" || Array.isArray(advice)
+    || forecast.local_date !== today
+  ) return null;
+
+  const lines = ["今日生活预报"];
+  const condition = safeVisible(forecast.condition, 80);
+  const current = strictFiniteNumber(forecast.current_temperature_c);
+  const apparent = strictFiniteNumber(forecast.apparent_temperature_c);
+  const minimum = strictFiniteNumber(forecast.temperature_min_c);
+  const maximum = strictFiniteNumber(forecast.temperature_max_c);
+  const precipitation = strictFiniteNumber(forecast.precipitation_probability_max_pct);
+  const wind = strictFiniteNumber(forecast.wind_speed_max_kmh);
+  const uvIndex = strictFiniteNumber(forecast.uv_index_max);
+  const aqi = strictFiniteNumber(forecast.us_aqi);
+  if (condition) lines.push(`天气：${condition}`);
+  if (current !== null) lines.push(`当前温度：${displayNumber(current)}°C`);
+  if (minimum !== null && maximum !== null) lines.push(`气温：${displayNumber(minimum)}～${displayNumber(maximum)}°C`);
+  if (apparent !== null) lines.push(`体感温度：${displayNumber(apparent)}°C`);
+  if (precipitation !== null) lines.push(`最高降水概率：${displayNumber(precipitation)}%`);
+  if (wind !== null) lines.push(`最大风速：${displayNumber(wind)} km/h`);
+  if (uvIndex !== null) lines.push(`最高紫外线指数：${displayNumber(uvIndex)}`);
+  if (aqi !== null) lines.push(`空气质量指数（US AQI）：${displayNumber(aqi)}`);
+
+  if (forecast.warnings_status === "available" && Array.isArray(forecast.warnings)) {
+    for (const warning of forecast.warnings.slice(0, 5)) {
+      if (!warning || typeof warning !== "object" || Array.isArray(warning)) continue;
+      const title = safeVisible(warning.title, 100);
+      const severity = safeVisible(warning.severity, 40);
+      const description = safeVisible(warning.description, 240);
+      const detail = [severity, description].filter(Boolean).join(" · ");
+      if (title || detail) lines.push(`预警：${title || "天气预警"}${detail ? ` · ${detail}` : ""}`);
+    }
+  }
+
+  const adviceLabels = {
+    clothing: "穿衣",
+    travel_umbrella: "出行与雨伞",
+    uv: "紫外线",
+    air_quality: "空气质量",
+  };
+  for (const [key, label] of Object.entries(adviceLabels)) {
+    const item = advice[key];
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const value = safeVisible(item.text, 240);
+    if (value) lines.push(`${label}建议：${value}`);
+  }
+
+  if (
+    fortune && typeof fortune === "object" && !Array.isArray(fortune)
+    && fortune.enabled === true
+    && fortune.date === today
+    && fortune.disclaimer === "娱乐内容、非事实预测"
+  ) {
+    lines.push("娱乐内容（娱乐内容、非事实预测）");
+    const focus = safeVisible(fortune.focus, 80);
+    const color = safeVisible(fortune.color, 40);
+    const action = safeVisible(fortune.small_action, 160);
+    if (focus) lines.push(`今日关注：${focus}`);
+    if (color) lines.push(`今日颜色：${color}`);
+    if (action) lines.push(`小行动：${action}`);
+  }
+  return lines.length > 1 ? text(lines.join("\n")) : null;
 }
 
 function demonMenuCard() {
@@ -485,11 +579,25 @@ export function createBusinessMenuController({
   onFocusStarted = async () => {},
   onFocusStopped = async () => {},
   now = () => Date.now(),
+  lifeForecastEnabled = false,
 } = {}) {
   if (typeof callApi !== "function") throw new TypeError("callApi is required");
   const goalViews = new Map();
   const pendingGoals = new Map();
   let pendingGoalSequence = 0;
+
+  async function handleLifeForecast({ refresh = false } = {}) {
+    if (lifeForecastEnabled !== true) return text("生活预报尚未开启");
+    try {
+      const formatted = formatLifeForecast(
+        await callApi(refresh ? "lifeForecastRefresh" : "lifeForecastToday"),
+        localDate(now()),
+      );
+      return formatted || text(refresh ? "生活预报刷新失败，请稍后重试" : "今日生活预报暂不可用");
+    } catch {
+      return text(refresh ? "生活预报刷新失败，请稍后重试" : "今日生活预报暂不可用");
+    }
+  }
 
   async function startFocus(user, minutes, encouragementAfterMinutes = null) {
     const body = await callApi("focusStart", {
@@ -586,6 +694,7 @@ export function createBusinessMenuController({
     [BUSINESS_ACTIONS.calendarMenu, async () => calendarMenuCard()],
     [BUSINESS_ACTIONS.calendarToday, async () => formatCalendarToday(await callApi("calendarToday"))],
     [BUSINESS_ACTIONS.calendarPractice, async () => formatPracticeStatus(await callApi("calendarStatus"))],
+    [BUSINESS_ACTIONS.lifeForecast, async () => handleLifeForecast({ refresh: true })],
   ]);
 
   function recognizesAction(action) {
@@ -634,6 +743,10 @@ export function createBusinessMenuController({
   }
 
   async function handleText(content, context = {}) {
+    const exact = String(content ?? "").trim();
+    if (LIFE_FORECAST_KEYWORDS.has(exact)) {
+      return { handled: true, response: await handleLifeForecast() };
+    }
     const normalized = String(content ?? "").trim().replace(/\s+/g, "");
     const menus = new Map([
       ["斩妖除魔", demonMenuCard],

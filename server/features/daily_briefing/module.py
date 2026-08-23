@@ -88,12 +88,20 @@ def register(app: Any) -> None:
             return provider
         return structural_voice
 
+    def read_life_forecast_today():
+        provider = getattr(app.state, "life_forecast_service", None)
+        read_today = getattr(provider, "get_today", None)
+        if not callable(read_today):
+            return None
+        return read_today()
+
     service_kwargs = {
         "root_dir": root_dir,
         "gateway": gateway,
         "source_config_provider": source_config_provider,
         "text_generator": text_generator,
         "voice_provider_resolver": resolve_voice_provider,
+        "life_forecast_provider": read_life_forecast_today,
     }
     if callable(clock):
         service_kwargs["clock"] = clock

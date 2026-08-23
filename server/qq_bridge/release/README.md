@@ -1,12 +1,12 @@
 # QQ Bridge release candidate
 
 - Module: `qq_bridge`
-- Version: `0.1.24`
-- Tag: `modules-2026.08.12`
-- Asset: `qq_bridge-0.1.24.zip`
-- Deterministic asset size: `161683` bytes
-- Deterministic asset SHA-256: `2a760c6303fa353bcaf8882333b263ad5ca30839b3a07de9aa195cfa48eaaf67`
-- Manifest SHA-256: `1535258b9c1307eb50241d1969704aa0d7ba170a0c5957f9f94e67cb73aa30e1`
+- Version: `0.1.26`
+- Tag: `modules-2026.08.20`
+- Asset: `qq_bridge-0.1.26.zip`
+- Deterministic asset size: `172429` bytes
+- Deterministic asset SHA-256: `9ab9c65ab25e7c357338f4654f3d46f383bb5f34d8179aa19c703ae89c5f8ae0`
+- Manifest SHA-256: `2d5e4ff59cd2684efb4c1a82c157a74c731e89b1ccddfe7f01c999814e13de2f`
 - Runtime requirement: Node.js `20/22/24/26` x64; Node 24 LTS recommended
 - Adapter: Core-registered `qq_bridge`
 - Data policy: preserve persistent `.env` and sidecar runtime data on update or uninstall

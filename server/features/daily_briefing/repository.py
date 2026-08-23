@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -12,12 +13,16 @@ from typing import Any, Callable, Mapping, Optional
 from .collector_gateway import _legacy_timestamp
 from .models import (
     BRIEFING_CACHE_SCHEMA_VERSION,
+    LIFE_FORECAST_PROJECTION_FIELD_IDS,
+    LIFE_FORECAST_PROJECTION_SCHEMA_VERSION,
     PUBLIC_SOURCE_IDS,
     BriefingDocument,
     CacheStatus,
     CoverageStatus,
     IntelItem,
     SourceCoverage,
+    LifeForecastProjectionUpdate,
+    disabled_life_forecast_projection,
     rfc3339,
     sanitize_external_text,
     stable_item_id,
@@ -32,6 +37,121 @@ class BriefingCachePersistenceError(BriefingCacheError):
     def __init__(self, message: str, *, cache_state_preserved: bool):
         super().__init__(message)
         self.cache_state_preserved = bool(cache_state_preserved)
+
+
+class LifeForecastProjectionPersistenceError(RuntimeError):
+    pass
+
+
+class LifeForecastProjectionRepository:
+    """Own only PK-110's local projection switches, never forecast data."""
+
+    def __init__(
+        self,
+        root_dir: str | Path,
+        *,
+        replace: Callable[[str | Path, str | Path], None] = os.replace,
+    ) -> None:
+        self.path = (
+            Path(root_dir)
+            / "data"
+            / "modules"
+            / "daily_briefing"
+            / "life_forecast_projection.json"
+        )
+        self._replace = replace
+        self._lock = threading.RLock()
+
+    @staticmethod
+    def _default() -> LifeForecastProjectionUpdate:
+        return disabled_life_forecast_projection()
+
+    @staticmethod
+    def _payload(update: LifeForecastProjectionUpdate) -> dict[str, Any]:
+        return {
+            "schema_version": LIFE_FORECAST_PROJECTION_SCHEMA_VERSION,
+            "enabled": bool(update.enabled),
+            "fields": {
+                key: bool(getattr(update.fields, key))
+                for key in LIFE_FORECAST_PROJECTION_FIELD_IDS
+            },
+        }
+
+    def load(self) -> LifeForecastProjectionUpdate:
+        with self._lock:
+            try:
+                payload = json.loads(self.path.read_text(encoding="utf-8"))
+            except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
+                return self._default()
+        if not isinstance(payload, Mapping):
+            return self._default()
+        fields = payload.get("fields")
+        if (
+            payload.get("schema_version") != LIFE_FORECAST_PROJECTION_SCHEMA_VERSION
+            or type(payload.get("enabled")) is not bool
+            or not isinstance(fields, Mapping)
+            or set(fields) != set(LIFE_FORECAST_PROJECTION_FIELD_IDS)
+            or any(type(fields.get(key)) is not bool for key in LIFE_FORECAST_PROJECTION_FIELD_IDS)
+        ):
+            return self._default()
+        try:
+            return LifeForecastProjectionUpdate(
+                enabled=payload["enabled"],
+                fields=dict(fields),
+            )
+        except (TypeError, ValueError):
+            return self._default()
+
+    def save(self, update: LifeForecastProjectionUpdate) -> LifeForecastProjectionUpdate:
+        payload = self._payload(update)
+        with self._lock:
+            try:
+                snapshot: Optional[bytes] = self.path.read_bytes()
+            except FileNotFoundError:
+                snapshot = None
+            except OSError as exc:
+                raise LifeForecastProjectionPersistenceError(
+                    "life_forecast_projection_save_failed"
+                ) from exc
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self.path.with_name(
+                f".{self.path.name}.{uuid.uuid4().hex}.tmp"
+            )
+            try:
+                with temporary.open("xb") as handle:
+                    handle.write(
+                        (
+                            json.dumps(payload, ensure_ascii=False, indent=2)
+                            + "\n"
+                        ).encode("utf-8")
+                    )
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                self._replace(temporary, self.path)
+            except Exception as exc:
+                try:
+                    if snapshot is None:
+                        self.path.unlink(missing_ok=True)
+                    else:
+                        restore = self.path.with_name(
+                            f".{self.path.name}.{uuid.uuid4().hex}.restore.tmp"
+                        )
+                        try:
+                            with restore.open("xb") as handle:
+                                handle.write(snapshot)
+                                handle.flush()
+                                os.fsync(handle.fileno())
+                            os.replace(restore, self.path)
+                        finally:
+                            restore.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                raise LifeForecastProjectionPersistenceError(
+                    "life_forecast_projection_save_failed"
+                ) from exc
+            finally:
+                temporary.unlink(missing_ok=True)
+        return update
 
 
 def document_digest(document: BriefingDocument) -> str:
@@ -386,5 +506,7 @@ __all__ = [
     "BriefingCacheError",
     "BriefingCachePersistenceError",
     "BriefingRepository",
+    "LifeForecastProjectionPersistenceError",
+    "LifeForecastProjectionRepository",
     "document_digest",
 ]

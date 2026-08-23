@@ -410,6 +410,7 @@ class QQControlAdapterFacade:
         secret: str | None,
         reply_with_voice: bool | None = None,
         qq_media_upload_capability: str | None = None,
+        life_forecast_enabled: bool | None = None,
     ) -> dict[str, Any]:
         if self._configuration_store is None:
             raise RuntimeError("configuration_unavailable")
@@ -421,6 +422,7 @@ class QQControlAdapterFacade:
             secret=secret,
             reply_with_voice=reply_with_voice,
             qq_media_upload_capability=qq_media_upload_capability,
+            life_forecast_enabled=life_forecast_enabled,
         )
         return {**saved, **self._voice_readiness()}
 
@@ -431,6 +433,7 @@ class QQControlAdapterFacade:
         secret: str | None,
         reply_with_voice: bool | None = None,
         qq_media_upload_capability: str | None = None,
+        life_forecast_enabled: bool | None = None,
     ) -> dict[str, Any]:
         if self._configuration_store is None:
             raise RuntimeError("configuration_unavailable")
@@ -442,6 +445,7 @@ class QQControlAdapterFacade:
             secret=secret,
             reply_with_voice=reply_with_voice,
             qq_media_upload_capability=qq_media_upload_capability,
+            life_forecast_enabled=life_forecast_enabled,
         )
         return {**saved, **await self._voice_readiness_async()}
 

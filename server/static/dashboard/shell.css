@@ -577,6 +577,13 @@ textarea { border-color:var(--line); background:var(--surface-strong); color:var
 }
 .module-management-heading .hint { margin-top:5px; }
 .module-management-heading > button { flex:none; }
+.module-management-heading-actions {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
 .module-management .module-catalog {
   grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));
 }
@@ -621,6 +628,44 @@ textarea { border-color:var(--line); background:var(--surface-strong); color:var
 .module-management-actions button {
   min-height:36px;
   white-space:normal;
+}
+.official-module-choice {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  min-width:40px;
+  min-height:40px;
+  margin-left:auto;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--surface);
+  cursor:pointer;
+}
+.official-module-choice:focus-within {
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+.official-module-choice input { width:18px; height:18px; }
+.official-module-batch-toolbar {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:12px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--surface-strong);
+}
+.official-module-batch-toolbar[hidden] { display:none; }
+.official-module-batch-toolbar .module-management-actions { margin-top:0; }
+.official-module-batch-list {
+  max-height:min(40vh,320px);
+  margin:0 0 16px;
+  padding-left:24px;
+  overflow:auto;
+  overflow-wrap:anywhere;
 }
 .module-action-empty {
   color:var(--muted);
@@ -743,6 +788,11 @@ textarea { border-color:var(--line); background:var(--surface-strong); color:var
     width:100%;
     justify-self:stretch;
   }
+  .module-management-heading-actions { display:grid; grid-template-columns:minmax(0,1fr); }
+  .module-management-heading-actions > button { width:100%; }
+  .official-module-batch-toolbar { display:grid; }
+  .official-module-batch-toolbar .module-management-actions { display:grid; }
+  .official-module-batch-toolbar .module-management-actions > button { width:100%; }
   .module-management .module-catalog { grid-template-columns:minmax(0,1fr); }
   .module-card-head,
   .module-meta-row { min-width:0; }

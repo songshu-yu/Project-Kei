@@ -31,6 +31,11 @@
       "enum": ["unknown", "available", "unavailable", "denied"],
       "default": "unknown",
       "description": "Non-secret operator declaration of the bot's QQ C2C media-upload permission; never inferred or actively probed."
+    },
+    "QQBOT_LIFE_FORECAST_ENABLED": {
+      "type": "boolean",
+      "default": false,
+      "description": "Explicit non-secret opt-in for read-only private-chat life forecast queries."
     }
   },
   "required": [

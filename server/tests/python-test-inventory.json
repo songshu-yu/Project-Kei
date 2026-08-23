@@ -43,6 +43,8 @@
     "test_intel_sources_integration.py",
     "test_intel_sources_installable.py",
     "test_intel_sources_registry.py",
+    "test_life_forecast_consumers.py",
+    "test_life_forecast_module.py",
     "test_llm_profile.py",
     "test_local_access_boundary.py",
     "test_memory_system.py",

@@ -68,6 +68,8 @@
 | PK-211 | GPT-SoVITS Engine Provider 与受控获取 | 已完成 | P1 | PK-010、PK-100、PK-210 | [任务说明](tasks/PK-211-gpt-sovits-engine-provider.md) |
 | PK-212 | Voice Pack 注册表与 Kei 模型包 | 待集成 | P1 | PK-010、PK-100、PK-210 | [任务说明](tasks/PK-212-voice-pack.md) |
 | PK-213 | Voice Pack 发布、远程获取与一键安装 | 待集成 | P1 | PK-010、PK-020、PK-100、PK-211、PK-212 | [任务说明](tasks/PK-213-voice-pack-distribution.md) |
+| PK-240 | 每日生活预报 | 已完成 | P1 | PK-010、PK-100 | [任务说明](tasks/PK-240-daily-life-forecast.md) |
+| PK-241 | 每日生活预报消费端联动 | 已完成 | P1 | PK-110、PK-140、PK-240 | [任务说明](tasks/PK-241-life-forecast-consumers.md) |
 | PK-900 | 版本集成与发布验收 | 已完成 | P0 | PK-010、PK-020、PK-030、PK-100、PK-115、PK-140、PK-170、PK-210、PK-211（本批次） | [任务说明](tasks/PK-900-integration-release.md) |
 
 ## 并行情报来源批次（2026-07-22）

@@ -12,9 +12,9 @@ from typing import Iterable
 
 FEATURE_ROOT = Path(__file__).resolve().parent
 PACKAGE_SOURCE = FEATURE_ROOT / "package_source"
-OFFICIAL_RELEASE_VERSION = "1.0.2"
-OFFICIAL_RELEASE_TAG = "modules-2026.08.02"
-OFFICIAL_ASSET_NAME = "daily-briefing-1.0.2.zip"
+OFFICIAL_RELEASE_VERSION = "1.0.3"
+OFFICIAL_RELEASE_TAG = "modules-2026.08.19"
+OFFICIAL_ASSET_NAME = "daily-briefing-1.0.3.zip"
 FIXED_ZIP_DATETIME = (2026, 1, 1, 0, 0, 0)
 BACKEND_FILES = (
     "__init__.py",

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "module_id": "daily_briefing",
   "name": "每日情报",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "core_compatibility": ">=1.0.0 <2.0.0",
-  "release_tag": "modules-2026.08.02",
-  "asset_name": "daily-briefing-1.0.2.zip",
+  "release_tag": "modules-2026.08.19",
+  "asset_name": "daily-briefing-1.0.3.zip",
   "dependencies": [],
   "optional_dependencies": [
     "intel_sources",
@@ -16,7 +16,8 @@
     "papers",
     "rss_intel",
     "conversation",
-    "voice"
+    "voice",
+    "life_forecast"
   ],
   "conflicts": [],
   "permissions": [

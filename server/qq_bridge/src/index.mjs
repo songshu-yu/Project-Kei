@@ -74,6 +74,7 @@ async function main() {
     maxReplyChars: Math.min(2000, Math.max(200, Number.parseInt(process.env.QQBOT_REPLY_MAX_CHARS || "1500", 10) || 1500)),
     timeoutMs: Math.min(120_000, Math.max(5000, Number.parseInt(process.env.QQBOT_REQUEST_TIMEOUT_MS || "45000", 10) || 45000)),
     replyWithVoice: String(process.env.QQBOT_REPLY_WITH_VOICE || "false").trim().toLowerCase() === "true",
+    lifeForecastEnabled: String(process.env.QQBOT_LIFE_FORECAST_ENABLED || "false").trim().toLowerCase() === "true",
   };
   const logger = createSafeLogger();
   const lifecycleController = new AbortController();
@@ -106,6 +107,7 @@ async function main() {
     voiceReplies,
     onVoiceResult: gatewayStatus.writeVoiceResult,
     lifecycleSignal: lifecycleController.signal,
+    lifeForecastEnabled: config.lifeForecastEnabled,
   });
 
   const projectJson = async (url, options, label, timeout = config.timeoutMs) => {

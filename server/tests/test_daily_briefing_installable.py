@@ -272,11 +272,12 @@ def check_deterministic_package_and_manifest() -> None:
                 assert ".." not in Path(info.filename).parts
             manifest = json.loads(archive.read("manifest.json"))
             assert manifest["id"] == "daily_briefing"
-            assert manifest["version"] == "1.0.2"
+            assert manifest["version"] == "1.0.3"
             assert manifest["dependencies"] == []
             assert {
                 "x_monitor", "bilibili", "youtube", "github_intel",
                 "papers", "rss_intel", "conversation", "voice",
+                "life_forecast",
             } <= set(manifest["optional_dependencies"])
             combined = b"\n".join(
                 archive.read(name)

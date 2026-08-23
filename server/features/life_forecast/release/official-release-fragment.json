@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "module_id": "life_forecast",
+  "name": "每日生活预报",
+  "version": "1.0.0",
+  "core_compatibility": ">=1.0.0 <2.0.0",
+  "release_tag": "modules-2026.08.19",
+  "asset_name": "life_forecast-1.0.0.zip",
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "permissions": [
+    "local_state",
+    "network_download"
+  ],
+  "data_policy": "preserve_on_uninstall",
+  "requires_restart": true
+}

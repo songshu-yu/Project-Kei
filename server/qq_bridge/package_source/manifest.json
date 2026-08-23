@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "qq_bridge",
   "name": "QQ Bridge",
-  "version": "0.1.24",
+  "version": "0.1.26",
   "type": "sidecar",
   "required": false,
   "core_compatibility": ">=1.0.0 <2.0.0",
@@ -14,6 +14,7 @@
     "demon_slayer",
     "fitness",
     "focus",
+    "life_forecast",
     "voice"
   ],
   "runtime_requirements": [
