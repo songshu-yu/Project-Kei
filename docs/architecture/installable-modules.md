@@ -251,6 +251,7 @@ DELETE /api/v1/modules/{module_id}
 POST   /api/v1/modules/{module_id}/purge-data
 GET    /api/v1/modules/official-catalog
 POST   /api/v1/modules/official-catalog/refresh
+POST   /api/v1/modules/official-catalog/connectivity
 POST   /api/v1/modules/{module_id}/install-official
 POST   /api/v1/modules/{module_id}/update-official
 POST   /api/v1/modules/{module_id}/rollback-official
@@ -296,6 +297,11 @@ refresh 才访问对应的固定 catalog URL。`auto` 先访问 GitHub，只在�
 `packages/<release_tag>/<asset_name>`，限制重定向、时间、字节数并流式核对
 SHA-256，随后复用本地包的 manifest、依赖、Core 保留和原子安装规则。官方
 rollback 不下载，只允许目录仍信任且本地安装内容摘要未变化的前一版本。
+
+`connectivity` 是显式本机动作且只接受无 query、空 body；它按固定顺序分别下载并完整
+验证 GitHub/Gitee Catalog，单源最多 8 秒，只返回 `available|unavailable`、有界毫秒数、
+模块数或稳定脱敏错误码。它不复用 `auto` 回退、不保存目录缓存、不安装模块，也不接受
+任意 URL、凭据、代理或远程命令。普通页面加载和切换来源仍然零网络。
 
 已启用模块的控制台入口通过 `GET /api/v1/modules` 返回可直接请求的 `dashboard_entrypoint`。静态资源读取限制在该包的 `dashboard/` 子目录，不能借此读取 backend、manifest 或配置 Schema。
 

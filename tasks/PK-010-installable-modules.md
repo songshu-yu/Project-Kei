@@ -586,3 +586,7 @@ docs/architecture/modular-monolith.md、docs/architecture/installable-modules.md
 - [x] AGENT_RULES — 不适用：未改变协作、安全、测试或 Git 规则。
 - [x] VALIDATION — Catalog/下载 fake、Dashboard 契约、编译、JS 语法、文档和 diff 门禁
   已执行；Gitee 实际镜像发布及双端逐资产抽验留给发布步骤。
+- 2026-08-31 双源连通性增量：新增严格本机空请求
+  `POST /api/v1/modules/official-catalog/connectivity`，只测试固定 GitHub/Gitee
+  Catalog，单源有界超时并完整验证 Catalog；响应只含可用状态、有界延迟、模块数或
+  稳定错误码。测试零 registry/目录缓存/安装写入，不接受 query/body/URL/Token/代理。

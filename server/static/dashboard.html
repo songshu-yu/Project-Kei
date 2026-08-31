@@ -109,6 +109,45 @@
           </button>
         </div>
       </div>
+      <div id="official-module-connectivity" class="official-source-connectivity"
+           role="group" aria-label="官方模块下载源连通性">
+        <div id="official-connectivity-github" class="official-connectivity-item"
+             data-official-connectivity-source="github" data-state="idle">
+          <span class="official-source-icon official-source-icon-github" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <circle cx="7" cy="6" r="2"></circle>
+              <circle cx="17" cy="6" r="2"></circle>
+              <circle cx="12" cy="18" r="2"></circle>
+              <path d="M7 8v2c0 3 2 4 5 4s5-1 5-4V8M12 14v2"></path>
+            </svg>
+          </span>
+          <span class="official-connectivity-copy">
+            <span>GitHub</span>
+            <strong data-official-connectivity-status>未测试</strong>
+            <small data-official-connectivity-detail>尚未发起网络请求</small>
+          </span>
+        </div>
+        <div id="official-connectivity-gitee" class="official-connectivity-item"
+             data-official-connectivity-source="gitee" data-state="idle">
+          <span class="official-source-icon official-source-icon-gitee" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M12 3a9 9 0 1 0 9 9v-2h-9v4h4.5A5 5 0 1 1 12 7h7V3z"></path>
+            </svg>
+          </span>
+          <span class="official-connectivity-copy">
+            <span>Gitee</span>
+            <strong data-official-connectivity-status>未测试</strong>
+            <small data-official-connectivity-detail>尚未发起网络请求</small>
+          </span>
+        </div>
+        <div class="official-connectivity-action">
+          <button class="secondary" id="test-official-module-connectivity" type="button">
+            测试连通性
+          </button>
+          <span id="official-module-connectivity-summary" class="hint" role="status"
+                aria-live="polite">只检测固定官方目录，不会保存目录或安装模块。</span>
+        </div>
+      </div>
       <div id="official-module-catalog-status" class="detail hint" role="status" aria-live="polite">
         等待读取本机目录缓存…
       </div>

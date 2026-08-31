@@ -112,6 +112,23 @@ async def refresh_official_catalog(
         _raise_http(exc)
 
 
+@router.post("/official-catalog/connectivity")
+async def test_official_catalog_connectivity(request: Request) -> dict:
+    _require_local(request)
+    if request.url.query or (await request.body()).strip():
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "official_connectivity_request_invalid",
+                "stage": "connectivity",
+            },
+        )
+    try:
+        return get_official_module_service().test_connectivity()
+    except Exception as exc:
+        _raise_http(exc)
+
+
 @router.post("/{module_id}/install-official")
 async def install_official_module(
     module_id: str,

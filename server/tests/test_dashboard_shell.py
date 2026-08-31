@@ -100,6 +100,11 @@ def check_html_contract() -> None:
         "services",
         "refresh-official-module-catalog",
         "official-module-download-source",
+        "official-module-connectivity",
+        "official-connectivity-github",
+        "official-connectivity-gitee",
+        "test-official-module-connectivity",
+        "official-module-connectivity-summary",
         "toggle-official-module-batch",
         "official-module-catalog-status",
         "official-module-install-confirmation",
@@ -148,6 +153,9 @@ def check_html_contract() -> None:
     assert "等待本机配置的 sidecar 受信面板" in html
     assert "不会访问 GitHub 或 Gitee，也不会请求未安装业务接口" in html
     assert "自动模式会在 GitHub 传输失败时尝试固定 Gitee 镜像" in html
+    assert "只检测固定官方目录，不会保存目录或安装模块" in html
+    assert 'data-official-connectivity-source="github"' in html
+    assert 'data-official-connectivity-source="gitee"' in html
     assert "服务器路径" in html and "任意下载网址" in html
     assert 'accept=".zip,application/zip"' in html
     assert "选择文件不会联网或安装" in html
@@ -424,6 +432,10 @@ if (requests.filter(([path, method]) => path === '/api/v1/voice-control/asr/stop
     assert "JSON.stringify({ download_source: officialDownloadSource })" in manager
     assert "GitHub 优先，传输失败时尝试 Gitee" in manager
     assert "official-module-download-source" in manager
+    assert "/api/v1/modules/official-catalog/connectivity" in manager
+    assert "normalizeOfficialConnectivity" in manager
+    assert "cache_written !== false" in manager
+    assert "测试连通性" in manager and "目录响应无效" in manager
     assert "Promise.all" not in manager
     assert "批量安装已停止" in manager and "未执行" in manager
     assert "可手动刷新后继续操作" in manager
@@ -528,6 +540,21 @@ const manager = await import({manager_url!r});
 const theme = await import({theme_url!r});
 const restart = await import({restart_url!r});
 const gptSovits = await import({gpt_sovits_url!r});
+const connectivity = manager.normalizeOfficialConnectivity({{
+  schema_version:1, network_accessed:true, cache_written:false,
+  results:[
+    {{source:'github',status:'available',latency_ms:12,module_count:20}},
+    {{source:'gitee',status:'unavailable',latency_ms:34,error_code:'official_catalog_refresh_failed'}},
+  ],
+}});
+if (connectivity.github.status !== 'available'
+    || connectivity.gitee.error_code !== 'official_catalog_refresh_failed')
+  throw new Error('connectivity response was not normalized');
+let invalidConnectivityRejected = false;
+try {{ manager.normalizeOfficialConnectivity({{
+  schema_version:1,network_accessed:true,cache_written:true,results:[],
+}}); }} catch (_error) {{ invalidConnectivityRejected = true; }}
+if (!invalidConnectivityRejected) throw new Error('connectivity response failed open');
 const localDigest = await manager.sha256Hex(new Blob(['kei']));
 if (localDigest !== '368848dc82d198e1c7cb0ae4aba2781e181e19e7a275405caf2af6399b1b4244')
   throw new Error('local package SHA-256 failed');
@@ -1041,6 +1068,30 @@ def create_preview_app() -> FastAPI:
         result["network_accessed"] = True
         result["refresh_status"] = "success"
         return result
+
+    @app.post("/api/v1/modules/official-catalog/connectivity")
+    async def connectivity(request: Request):
+        if request.url.query or (await request.body()).strip():
+            raise HTTPException(status_code=422, detail="invalid connectivity request")
+        return {
+            "schema_version": 1,
+            "network_accessed": True,
+            "cache_written": False,
+            "results": [
+                {
+                    "source": "github",
+                    "status": "available",
+                    "latency_ms": 48,
+                    "module_count": len(OFFICIAL_MODULE_IDS),
+                },
+                {
+                    "source": "gitee",
+                    "status": "available",
+                    "latency_ms": 31,
+                    "module_count": len(OFFICIAL_MODULE_IDS),
+                },
+            ],
+        }
 
     @app.post("/api/v1/modules/{module_id}/install-official")
     async def install_official(module_id: str, request: Request):
