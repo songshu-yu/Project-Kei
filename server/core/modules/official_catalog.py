@@ -42,6 +42,7 @@ OFFICIAL_GITEE_CATALOG_URL = (
     "raw/main/catalog/official-catalog.json"
 )
 OFFICIAL_DOWNLOAD_SOURCES = ("auto", "github", "gitee")
+OFFICIAL_CONNECTIVITY_TIMEOUT_SECONDS = 8.0
 MAX_CATALOG_BYTES = 1024 * 1024
 MAX_OFFICIAL_PACKAGE_BYTES = 64 * 1024 * 1024
 _REDIRECT_STATUSES = {301, 302, 303, 307, 308}
@@ -480,9 +481,23 @@ class OfficialCatalogHTTPClient:
             retry_after=retry_after,
         )
 
-    def _fetch_catalog_from(self, source: str) -> OfficialModuleCatalog:
+    def _fetch_catalog_from(
+        self,
+        source: str,
+        *,
+        request_timeout: Optional[float] = None,
+    ) -> OfficialModuleCatalog:
         try:
-            with self.client.stream("GET", _catalog_url(source)) as response:
+            stream = (
+                self.client.stream(
+                    "GET",
+                    _catalog_url(source),
+                    timeout=request_timeout,
+                )
+                if request_timeout is not None
+                else self.client.stream("GET", _catalog_url(source))
+            )
+            with stream as response:
                 if response.status_code in {403, 429}:
                     raise self._rate_limit_error(
                         source,
@@ -541,6 +556,42 @@ class OfficialCatalogHTTPClient:
     def fetch_catalog(self, source: str = "auto") -> OfficialModuleCatalog:
         catalog, _ = self.fetch_catalog_with_source(source)
         return catalog
+
+    def probe_catalog(self, source: str) -> Dict[str, Any]:
+        candidate = normalize_official_download_source(source)
+        if candidate == "auto":
+            raise OfficialCatalogError(
+                "connectivity probes require one fixed official source",
+                code="official_connectivity_source_invalid",
+                stage="connectivity",
+            )
+        started = self.clock()
+        try:
+            catalog = self._fetch_catalog_from(
+                candidate,
+                request_timeout=OFFICIAL_CONNECTIVITY_TIMEOUT_SECONDS,
+            )
+        except OfficialCatalogError as exc:
+            latency_ms = min(
+                60_000,
+                max(0, int((self.clock() - started) * 1000)),
+            )
+            return {
+                "source": candidate,
+                "status": "unavailable",
+                "latency_ms": latency_ms,
+                "error_code": exc.code,
+            }
+        latency_ms = min(
+            60_000,
+            max(0, int((self.clock() - started) * 1000)),
+        )
+        return {
+            "source": candidate,
+            "status": "available",
+            "latency_ms": latency_ms,
+            "module_count": len(catalog.modules),
+        }
 
     @staticmethod
     def _trusted_redirect(url: str, source: str) -> str:
@@ -761,6 +812,7 @@ def validate_release_manifest(archive: Path, release: OfficialModuleRelease, cor
 __all__ = [
     "MAX_OFFICIAL_PACKAGE_BYTES",
     "OFFICIAL_CATALOG_URL",
+    "OFFICIAL_CONNECTIVITY_TIMEOUT_SECONDS",
     "OFFICIAL_DOWNLOAD_SOURCES",
     "OFFICIAL_GITEE_CATALOG_URL",
     "OFFICIAL_GITEE_OWNER",

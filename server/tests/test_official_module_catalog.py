@@ -351,6 +351,11 @@ async def test_origin_confirmation_and_catalog_source_guards() -> None:
                 headers={"Origin": "https://evil.example"},
             )
             assert cross_site.status_code == 403
+            connectivity_cross_site = await client.post(
+                "/api/v1/modules/official-catalog/connectivity",
+                headers={"Origin": "https://evil.example"},
+            )
+            assert connectivity_cross_site.status_code == 403
         finally:
             await client.aclose()
             restore_router(original_manager, original_official)
@@ -395,6 +400,48 @@ async def test_fixed_gitee_mirror_selection_and_transport_fallback() -> None:
         manager, service = make_service(root, catalog([item]), handler)
         client, original_manager, original_official = await api_client(manager, service)
         try:
+            cache_path = root / "data" / "official_module_catalog.json"
+            cache_before = cache_path.read_bytes()
+            connectivity = await client.post(
+                "/api/v1/modules/official-catalog/connectivity"
+            )
+            assert connectivity.status_code == 200
+            assert connectivity.json()["network_accessed"] is True
+            assert connectivity.json()["cache_written"] is False
+            assert connectivity.json()["results"] == [
+                {
+                    "source": "github",
+                    "status": "unavailable",
+                    "latency_ms": connectivity.json()["results"][0]["latency_ms"],
+                    "error_code": "official_catalog_refresh_failed",
+                },
+                {
+                    "source": "gitee",
+                    "status": "available",
+                    "latency_ms": connectivity.json()["results"][1]["latency_ms"],
+                    "module_count": 1,
+                },
+            ]
+            assert all(
+                isinstance(item["latency_ms"], int)
+                and 0 <= item["latency_ms"] <= 60_000
+                for item in connectivity.json()["results"]
+            )
+            assert requests == [OFFICIAL_CATALOG_URL, OFFICIAL_GITEE_CATALOG_URL]
+            assert cache_path.read_bytes() == cache_before
+            requests.clear()
+
+            rejected_query = await client.post(
+                "/api/v1/modules/official-catalog/connectivity?source=github"
+            )
+            rejected_body = await client.post(
+                "/api/v1/modules/official-catalog/connectivity",
+                content=b"{}",
+            )
+            assert rejected_query.status_code == 422
+            assert rejected_body.status_code == 422
+            assert requests == []
+
             refreshed = await client.post(
                 "/api/v1/modules/official-catalog/refresh",
                 json={"download_source": "auto"},

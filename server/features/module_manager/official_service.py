@@ -104,6 +104,18 @@ class OfficialModuleService:
                 refresh_source=actual_source,
             )
 
+    def test_connectivity(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "schema_version": 1,
+                "network_accessed": True,
+                "cache_written": False,
+                "results": [
+                    self.http_client.probe_catalog(source)
+                    for source in ("github", "gitee")
+                ],
+            }
+
     def _release(self, module_id: str, version: str) -> OfficialModuleRelease:
         catalog, _ = self.store.load()
         for release in catalog.modules:

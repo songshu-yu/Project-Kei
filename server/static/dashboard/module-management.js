@@ -1,6 +1,15 @@
 const officialRepositoryLabel = 'songshu-yu/Project-Kei-Modules';
 const officialDownloadSourceStorageKey = 'project-kei-official-download-source-v1';
 const officialDownloadSources = new Set(['auto', 'github', 'gitee']);
+const officialConnectivitySources = Object.freeze(['github', 'gitee']);
+const officialConnectivityErrorLabels = Object.freeze({
+  official_catalog_refresh_failed: '连接失败',
+  official_github_rate_limited: '匿名访问受限',
+  official_gitee_rate_limited: '匿名访问受限',
+  official_catalog_invalid: '目录响应无效',
+  official_catalog_too_large: '目录响应过大',
+  official_catalog_source_untrusted: '目录身份不受信',
+});
 export const coreModuleIds = Object.freeze(['catalog', 'module_manager', 'dashboard']);
 const coreModuleIdSet = new Set(coreModuleIds);
 const coreModuleLabels = Object.freeze({
@@ -95,6 +104,46 @@ function saveOfficialDownloadSource(value) {
     globalThis.localStorage?.setItem(officialDownloadSourceStorageKey, normalized);
   } catch (_error) {
     // Source preference is optional browser-only state.
+  }
+  return normalized;
+}
+
+export function normalizeOfficialConnectivity(payload) {
+  if (!payload || typeof payload !== 'object'
+      || payload.schema_version !== 1
+      || payload.network_accessed !== true
+      || payload.cache_written !== false) {
+    throw new Error('连通性测试响应格式无效');
+  }
+  const normalized = {};
+  safeObjects(payload.results).forEach((item) => {
+    const source = String(item.source || '');
+    const status = String(item.status || '');
+    const latency = Number(item.latency_ms);
+    if (!officialConnectivitySources.includes(source)
+        || normalized[source]
+        || !['available', 'unavailable'].includes(status)
+        || !Number.isInteger(latency)
+        || latency < 0
+        || latency > 60000) {
+      throw new Error('连通性测试响应格式无效');
+    }
+    if (status === 'available') {
+      const moduleCount = Number(item.module_count);
+      if (!Number.isInteger(moduleCount) || moduleCount < 0 || moduleCount > 10000) {
+        throw new Error('连通性测试响应格式无效');
+      }
+      normalized[source] = { source, status, latency_ms: latency, module_count: moduleCount };
+      return;
+    }
+    const errorCode = String(item.error_code || '');
+    if (!/^[a-z][a-z0-9_]{0,79}$/.test(errorCode)) {
+      throw new Error('连通性测试响应格式无效');
+    }
+    normalized[source] = { source, status, latency_ms: latency, error_code: errorCode };
+  });
+  if (!officialConnectivitySources.every((source) => normalized[source])) {
+    throw new Error('连通性测试响应格式无效');
   }
   return normalized;
 }
@@ -1086,6 +1135,7 @@ export function setupModuleManagement({
   let batchMode = false;
   let batchBusy = false;
   let officialDownloadSource = loadOfficialDownloadSource();
+  let officialConnectivity = { phase: 'idle', results: {}, message: '' };
   const batchSelection = new Set();
 
   function setLocalModuleId(value, origin) {
@@ -1187,6 +1237,53 @@ export function setupModuleManagement({
     }));
   }
 
+  function renderOfficialConnectivity() {
+    const testing = officialConnectivity.phase === 'testing';
+    const button = document.querySelector('#test-official-module-connectivity');
+    const summary = document.querySelector('#official-module-connectivity-summary');
+    if (button) {
+      button.disabled = testing || batchBusy || interactionBlockedPhases.has(officialState.phase);
+      button.setAttribute('aria-busy', testing ? 'true' : 'false');
+      button.textContent = testing ? '正在测试 GitHub 与 Gitee…' : '测试连通性';
+    }
+    if (summary) {
+      summary.textContent = {
+        idle: '只检测固定官方目录，不会保存目录或安装模块。',
+        testing: '正在分别验证两个固定官方目录，请稍候。',
+        ready: '测试完成；结果仅代表本次检测，不会改写目录缓存。',
+        failed: `测试失败：${officialConnectivity.message || '响应格式无效'}。`,
+      }[officialConnectivity.phase] || '只检测固定官方目录，不会保存目录或安装模块。';
+      summary.classList.toggle('error-text', officialConnectivity.phase === 'failed');
+    }
+    officialConnectivitySources.forEach((sourceName) => {
+      const card = document.querySelector(`[data-official-connectivity-source="${sourceName}"]`);
+      if (!card) return;
+      const result = officialConnectivity.results[sourceName];
+      const status = card.querySelector('[data-official-connectivity-status]');
+      const detail = card.querySelector('[data-official-connectivity-detail]');
+      const selected = officialDownloadSource === sourceName || officialDownloadSource === 'auto';
+      card.dataset.state = testing ? 'testing' : result?.status || 'idle';
+      card.dataset.selected = selected ? 'true' : 'false';
+      if (status) {
+        status.textContent = testing
+          ? '测试中'
+          : result?.status === 'available'
+            ? '可用'
+            : result?.status === 'unavailable' ? '不可用' : '未测试';
+      }
+      if (detail) {
+        if (!result) {
+          detail.textContent = testing ? '正在验证固定目录…' : '尚未发起网络请求';
+        } else if (result.status === 'available') {
+          detail.textContent = `${result.latency_ms} ms · 目录 ${result.module_count} 项`;
+        } else {
+          const reason = officialConnectivityErrorLabels[result.error_code] || '连接不可用';
+          detail.textContent = `${result.latency_ms} ms · ${reason}`;
+        }
+      }
+    });
+  }
+
   function renderOfficial() {
     const validBatchKeys = new Set(
       officialInstallCandidates(officialState.catalog, lastCatalog).map(officialModuleKey),
@@ -1196,14 +1293,16 @@ export function setupModuleManagement({
     });
     renderOfficialPhase(officialState);
     renderOfficialModules(officialState, lastCatalog, batchMode, batchSelection);
+    renderOfficialConnectivity();
+    const connectivityBusy = officialConnectivity.phase === 'testing';
     const refresh = document.querySelector('#refresh-official-module-catalog');
     const source = document.querySelector('#official-module-download-source');
     if (source) {
       source.value = officialDownloadSource;
-      source.disabled = batchBusy || interactionBlockedPhases.has(officialState.phase);
+      source.disabled = connectivityBusy || batchBusy || interactionBlockedPhases.has(officialState.phase);
     }
     if (refresh) {
-      refresh.disabled = batchBusy || interactionBlockedPhases.has(officialState.phase);
+      refresh.disabled = connectivityBusy || batchBusy || interactionBlockedPhases.has(officialState.phase);
       refresh.setAttribute('aria-busy', officialState.phase === 'refreshing' ? 'true' : 'false');
     }
     const toggle = document.querySelector('#toggle-official-module-batch');
@@ -1213,7 +1312,7 @@ export function setupModuleManagement({
     if (toggle) {
       toggle.textContent = batchMode ? '取消批量选择' : '批量选择';
       toggle.setAttribute('aria-pressed', batchMode ? 'true' : 'false');
-      toggle.disabled = batchBusy || interactionBlockedPhases.has(officialState.phase);
+      toggle.disabled = connectivityBusy || batchBusy || interactionBlockedPhases.has(officialState.phase);
     }
     if (toolbar) toolbar.hidden = !batchMode;
     if (count) count.textContent = `已选择 ${batchSelection.size} 项`;
@@ -1310,7 +1409,8 @@ export function setupModuleManagement({
   }
 
   async function refreshOfficialCatalog() {
-    if (interactionBlockedPhases.has(officialState.phase)) return;
+    if (officialConnectivity.phase === 'testing'
+        || interactionBlockedPhases.has(officialState.phase)) return;
     officialState = transitionOfficialModuleState(officialState, { type: 'REFRESH' });
     renderOfficial();
     try {
@@ -1333,6 +1433,32 @@ export function setupModuleManagement({
       renderOfficial();
       notify('官方模块目录刷新失败；已安装模块和 Core 固定模块不受影响。', 'error');
     }
+  }
+
+  async function testOfficialConnectivity() {
+    if (officialConnectivity.phase === 'testing'
+        || batchBusy
+        || interactionBlockedPhases.has(officialState.phase)) return;
+    officialConnectivity = { phase: 'testing', results: {}, message: '' };
+    renderOfficial();
+    try {
+      const payload = await request('/api/v1/modules/official-catalog/connectivity', {
+        method: 'POST',
+        timeoutMs: 20000,
+      });
+      officialConnectivity = {
+        phase: 'ready',
+        results: normalizeOfficialConnectivity(payload),
+        message: '',
+      };
+    } catch (error) {
+      officialConnectivity = {
+        phase: 'failed',
+        results: {},
+        message: operationError(error),
+      };
+    }
+    renderOfficial();
   }
 
   async function runLifecycleAction(moduleInfo, action, confirmation = '') {
@@ -1699,6 +1825,11 @@ export function setupModuleManagement({
   document.querySelector('#refresh-official-module-catalog')?.addEventListener(
     'click',
     () => void refreshOfficialCatalog(),
+    { signal: abortController.signal },
+  );
+  document.querySelector('#test-official-module-connectivity')?.addEventListener(
+    'click',
+    () => void testOfficialConnectivity(),
     { signal: abortController.signal },
   );
   document.querySelector('#official-module-download-source')?.addEventListener(

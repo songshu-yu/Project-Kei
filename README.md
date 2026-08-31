@@ -524,6 +524,8 @@ SHA-256，不允许镜像自行重打包。旧 Release 暂时保留为兼容入�
 “仅 GitHub”或“仅 Gitee”。自动模式先尝试 GitHub，只在连接失败、超时或明确可重试的
 服务端故障时切换 Gitee；摘要、大小、manifest、重定向或其他安全校验失败时立即停止，
 不会借镜像绕过校验。来源选择只保存在浏览器 `localStorage`，不写业务配置。
+控制台的“测试连通性”会显式验证两个固定 Catalog，并显示本次可用状态和响应时间；
+测试不安装模块、不保存 Catalog，也不接受用户 URL、Token、Cookie 或代理设置。
 
 测试人员也可在项目根目录把 20 个模块包下载到系统临时目录；脚本会按照当前受版本
 控制的 Catalog 逐项核对 SHA-256。公开仓库无需 GitHub Token：
@@ -877,7 +879,7 @@ Release 或把 `kei@1.0.0` 描述为可远程安装。
 | 服务状态 | `GET /dashboard/status` |
 | 受控重启 Core | `GET /api/v1/dashboard/service/restart/status`（loopback 只读；无 Origin 可用）、`POST /api/v1/dashboard/service/restart`（精确同源 Origin + 二次确认） |
 | 模块目录与任务映射 | `GET /api/v1/modules`（只读，不访问外网或个人状态） |
-| 官方模块目录 | `GET /api/v1/modules/official-catalog`（只读本地缓存）、`POST /api/v1/modules/official-catalog/refresh`（显式联网刷新；可选固定 `download_source=auto\|github\|gitee`） |
+| 官方模块目录 | `GET /api/v1/modules/official-catalog`（只读本地缓存）、`POST /api/v1/modules/official-catalog/refresh`（显式联网刷新；可选固定 `download_source=auto\|github\|gitee`）、`POST /api/v1/modules/official-catalog/connectivity`（空请求；测试固定 GitHub/Gitee Catalog，零缓存写入） |
 | 安装/更新/回滚官方模块 | `POST /api/v1/modules/{module_id}/install-official`、`/update-official`、`/rollback-official`（精确版本确认；安装/更新可选固定下载来源；回滚只用已验证本地版本） |
 | 安装本地模块包 | `POST /api/v1/modules/install-upload`（正式控制台入口；从已验证 manifest 自动识别 ID，可选 `expected_module_id` 额外核对；原始 `application/zip` + `X-Project-Kei-Package-SHA256`）、`POST /api/v1/modules/{module_id}/install-upload`（legacy 兼容路径）、`POST /api/v1/modules/{module_id}/install`（维护者本机路径接口） |
 | 启用/停用模块 | `POST /api/v1/modules/{module_id}/enable`、`/disable`（仅本机） |

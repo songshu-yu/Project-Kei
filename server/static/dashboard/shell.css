@@ -668,6 +668,69 @@ textarea { border-color:var(--line); background:var(--surface-strong); color:var
   font-size:.84rem;
 }
 .official-module-source-control select { width:100%; }
+.official-source-connectivity {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(180px,1fr)) minmax(210px,.8fr);
+  gap:10px;
+  margin-top:12px;
+}
+.official-connectivity-item,
+.official-connectivity-action {
+  min-width:0;
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--surface-strong);
+}
+.official-connectivity-item {
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr);
+  align-items:center;
+  gap:10px;
+}
+.official-connectivity-item[data-selected="true"] {
+  border-color:var(--accent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent);
+}
+.official-connectivity-item[data-state="available"] { border-color:var(--good); }
+.official-connectivity-item[data-state="unavailable"] { border-color:var(--bad); }
+.official-source-icon {
+  display:grid;
+  place-items:center;
+  width:38px;
+  height:38px;
+  border-radius:11px;
+  color:#fff;
+}
+.official-source-icon svg {
+  width:24px;
+  height:24px;
+  fill:currentColor;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.official-source-icon-github { background:#24292f; }
+.official-source-icon-gitee { background:#c71d23; }
+.official-source-icon-github svg circle { fill:currentColor; stroke:none; }
+.official-source-icon-github svg path { fill:none; }
+.official-connectivity-copy { display:grid; gap:2px; min-width:0; }
+.official-connectivity-copy > span { color:var(--muted); font-size:12px; }
+.official-connectivity-copy strong { color:var(--text); }
+.official-connectivity-copy small {
+  color:var(--muted);
+  overflow-wrap:anywhere;
+}
+.official-connectivity-item[data-state="available"] strong { color:var(--good); }
+.official-connectivity-item[data-state="unavailable"] strong { color:var(--bad); }
+.official-connectivity-action {
+  display:grid;
+  align-content:center;
+  gap:6px;
+}
+.official-connectivity-action button { width:100%; }
+.official-connectivity-action .hint { margin:0; line-height:1.45; }
 .official-module-batch-list {
   max-height:min(40vh,320px);
   margin:0 0 16px;
@@ -798,6 +861,7 @@ textarea { border-color:var(--line); background:var(--surface-strong); color:var
   }
   .module-management-heading-actions { display:grid; grid-template-columns:minmax(0,1fr); }
   .module-management-heading-actions > button { width:100%; }
+  .official-source-connectivity { grid-template-columns:minmax(0,1fr); }
   .official-module-batch-toolbar { display:grid; }
   .official-module-batch-toolbar .module-management-actions { display:grid; }
   .official-module-batch-toolbar .module-management-actions > button { width:100%; }
