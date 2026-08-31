@@ -24,7 +24,7 @@ Project Kei 是一个以《碧蓝档案》天童 Kei 为人格的 Windows 本地
 |---|---|---|
 | 主服务与控制台公共外壳 | 已实现；公共样式、请求、通知、折叠、功能中心和模块入口加载已从业务脚本中拆出 | `server/api.py`、`server/static/dashboard/`、`/dashboard` |
 | 模块目录与项目任务体系 | 已实现；采用模块化单体、项目内任务总板和独立功能任务 | `TASKS.md`、`tasks/`、`GET /api/v1/modules` |
-| 可安装模块生命周期 | 本地可信包、固定官方 GitHub Release 目录、摘要校验、原子注册表、生命周期 API、重启装载与控制台模块中心已实现；19 个业务项已有确定性安装包候选，等待最终 PK-900 与 Release 发布 | `server/core/modules/`、`server/core/modules/official-catalog.json`、`GET /api/v1/modules`、`PK-010`、`PK-011`、`PK-100` |
+| 可安装模块生命周期 | 本地可信包、固定官方 GitHub/Gitee 双镜像目录、摘要校验、原子注册表、生命周期 API、重启装载与控制台模块中心已实现；20 个业务项已有确定性安装包候选，等待最终 PK-900 与 Release 发布 | `server/core/modules/`、`server/core/modules/official-catalog.json`、`GET /api/v1/modules`、`PK-010`、`PK-011`、`PK-100` |
 | LLM 角色对话 | 已迁入可安装 conversation 模块；新旧文字与 history 接口共用同一 service | `server/features/conversation/`、`POST /api/v1/conversation`、`/chat/text-only` |
 | 热切换模型方案 | 已迁入 conversation 模块；候选测试、非秘密 profile 原子保存和活动 client 切换共用同一流程 | `GET/PUT /api/v1/llm-profile`、控制台 legacy LLM 面板 |
 | 语音公共契约与编排 | 已迁入可安装 voice 模块；新旧同步/流式接口共用 ASR → PK-200 → TTS service，TTS 缺失时明确文字降级 | `server/features/voice/`、`/api/v1/voice/*`、`/voice/*` |
@@ -512,15 +512,20 @@ ZIP、GitHub Release 或其他用户的安装。
 当前不把所有功能拆成独立进程。Project Kei API 保持模块化单体，QQ bridge、ASR 和 GPT-SoVITS 继续作为已有独立进程。新业务接口优先使用 `/api/v1/<module>`；现有 `/dashboard/*`、`/demon/*` 等接口在逐模块迁移期间保持兼容。
 
 Core 固定只保留模块管理、官方目录和控制台公共外壳。conversation、个人工具、
-情报来源与聚合、语音、Voice Pack 工具和 QQ bridge 共 19 项已经形成确定性安装包。
-官方分发集中在独立仓库 `songshu-yu/Project-Kei-Modules`：源码仓库继续维护模块实现和
-构建器，分发仓库按业务、情报、语音和集成分类保存目录说明，并以一个批次 Release
-承载该批全部 ZIP。旧 Release 暂时保留为兼容入口，不再作为新 Catalog 的下载来源。
+情报来源与聚合、语音、Voice Pack 工具和 QQ bridge 共 20 项已经形成确定性安装包。
+官方分发以 GitHub `songshu-yu/Project-Kei-Modules` 为主仓库，并可将同一批不可变 ZIP
+同步到 Gitee `songshuyu957/Project-Kei-Modules` 镜像。源码仓库继续维护模块实现和构建器；
+GitHub 以批次 Release 承载附件，Gitee 以固定 `packages/<release_tag>/<asset_name>` 路径
+保存逐字节相同的附件。两端共用同一 Catalog、精确大小、ZIP SHA-256 和 manifest
+SHA-256，不允许镜像自行重打包。旧 Release 暂时保留为兼容入口。
 
-当前批次 tag 为 `modules-2026.08.02`，19 个附件各自保留模块 ID、SemVer、精确大小
-和 SHA-256。公共目录支持匿名固定 URL；控制台只在用户显式刷新或确认安装时联网。
+当前目录中的每个附件都保留模块 ID、SemVer、精确大小和 SHA-256。公共目录支持匿名
+固定 URL；控制台只在用户显式刷新或确认安装时联网。下载来源可选择“自动（推荐）”、
+“仅 GitHub”或“仅 Gitee”。自动模式先尝试 GitHub，只在连接失败、超时或明确可重试的
+服务端故障时切换 Gitee；摘要、大小、manifest、重定向或其他安全校验失败时立即停止，
+不会借镜像绕过校验。来源选择只保存在浏览器 `localStorage`，不写业务配置。
 
-测试人员也可在项目根目录把 19 个模块包下载到系统临时目录；脚本会按照当前受版本
+测试人员也可在项目根目录把 20 个模块包下载到系统临时目录；脚本会按照当前受版本
 控制的 Catalog 逐项核对 SHA-256。公开仓库无需 GitHub Token：
 
 ```powershell
@@ -575,21 +580,23 @@ $voiceSha = (Get-FileHash -LiteralPath $voiceZip -Algorithm SHA256).Hash.ToLower
 
 1. clone 仓库并运行 `setup.bat`，随后运行 `start.bat`；
 2. 打开 `http://127.0.0.1:8000/dashboard` 的模块中心；
-3. 可显式点击“刷新官方目录”并确认在线安装；也可用 `gh release download` 下载
+3. 可选择自动/GitHub/Gitee 后显式点击“刷新官方目录”并确认在线安装；也可用 `gh release download` 下载
    ZIP，再在“高级 / 离线安装”中选择本地 ZIP；
 4. 安装后显式启用；页面提示需要重启时，关闭并重新运行 `start.bat`；
 5. 停用或卸载后同样重启。卸载默认只移除程序包，保留个人状态。
 
-页面加载、查看本地目录、展开卡片和切换主题都不联网。只有显式刷新官方目录或
-确认安装/更新时访问固定 `songshu-yu/Project-Kei-Modules` Release；不接受任意仓库、
-URL、Token 或远程脚本。模块与本地程序的完整交互标准见
+页面加载、查看本地目录、展开卡片、切换主题和切换下载来源都不联网。只有显式刷新
+官方目录或确认安装/更新时只访问固定 GitHub `songshu-yu/Project-Kei-Modules` 或
+Gitee `songshuyu957/Project-Kei-Modules` 镜像；浏览器不能提交任意仓库、URL、
+Token、Cookie、代理或远程脚本。模块与本地
+程序的完整交互标准见
 [模块包交互与发布契约](docs/architecture/module-package-contract.md)。
 
 ### 本地可安装模块基础
 
 - 开发者仍可导入当前电脑上的可信目录或 ZIP，并同时提供预先计算的 SHA-256。
-  普通用户使用固定官方目录；管理器只在显式动作中下载目录声明的不可变 GitHub
-  Release 资产。
+  普通用户使用固定官方目录；管理器只在显式动作中从固定 GitHub Release 或 Gitee
+  镜像路径下载目录声明的同一不可变资产，并始终按 Catalog 的大小与摘要复核。
 - 控制台离线导入不暴露服务器文件路径：浏览器计算 SHA-256 后，以
   `application/zip` 原始请求体上传到仅本机接口；Core 流式写入自动清理的系统临时
   目录，摘要和 manifest ID 通过后才进入既有原子安装流程。安装后仍为停用状态。
@@ -870,8 +877,8 @@ Release 或把 `kei@1.0.0` 描述为可远程安装。
 | 服务状态 | `GET /dashboard/status` |
 | 受控重启 Core | `GET /api/v1/dashboard/service/restart/status`（loopback 只读；无 Origin 可用）、`POST /api/v1/dashboard/service/restart`（精确同源 Origin + 二次确认） |
 | 模块目录与任务映射 | `GET /api/v1/modules`（只读，不访问外网或个人状态） |
-| 官方模块目录 | `GET /api/v1/modules/official-catalog`（只读本地缓存）、`POST /api/v1/modules/official-catalog/refresh`（显式联网刷新） |
-| 安装/更新/回滚官方模块 | `POST /api/v1/modules/{module_id}/install-official`、`/update-official`、`/rollback-official`（精确版本确认；回滚只用已验证本地版本） |
+| 官方模块目录 | `GET /api/v1/modules/official-catalog`（只读本地缓存）、`POST /api/v1/modules/official-catalog/refresh`（显式联网刷新；可选固定 `download_source=auto\|github\|gitee`） |
+| 安装/更新/回滚官方模块 | `POST /api/v1/modules/{module_id}/install-official`、`/update-official`、`/rollback-official`（精确版本确认；安装/更新可选固定下载来源；回滚只用已验证本地版本） |
 | 安装本地模块包 | `POST /api/v1/modules/install-upload`（正式控制台入口；从已验证 manifest 自动识别 ID，可选 `expected_module_id` 额外核对；原始 `application/zip` + `X-Project-Kei-Package-SHA256`）、`POST /api/v1/modules/{module_id}/install-upload`（legacy 兼容路径）、`POST /api/v1/modules/{module_id}/install`（维护者本机路径接口） |
 | 启用/停用模块 | `POST /api/v1/modules/{module_id}/enable`、`/disable`（仅本机） |
 | 升级/回滚模块 | `POST /api/v1/modules/{module_id}/update`、`/rollback`（仅本机） |

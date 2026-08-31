@@ -1,4 +1,6 @@
-const officialRepositoryLabel = 'songshu-yu/Cyber-Girlfriend';
+const officialRepositoryLabel = 'songshu-yu/Project-Kei-Modules';
+const officialDownloadSourceStorageKey = 'project-kei-official-download-source-v1';
+const officialDownloadSources = new Set(['auto', 'github', 'gitee']);
 export const coreModuleIds = Object.freeze(['catalog', 'module_manager', 'dashboard']);
 const coreModuleIdSet = new Set(coreModuleIds);
 const coreModuleLabels = Object.freeze({
@@ -26,7 +28,7 @@ const phaseLabels = Object.freeze({
   loading_cache: '正在读取本机目录缓存',
   cache_ready: '已读取本机目录缓存',
   empty: '官方目录中暂时没有可安装模块',
-  refreshing: '正在从 Project Kei 官方 GitHub 仓库刷新目录',
+  refreshing: '正在从选择的 Project Kei 官方镜像刷新目录',
   confirming: '等待确认下载并安装',
   downloading: '后端正在下载、校验并安装官方模块包',
   verifying: '后端正在校验大小、SHA-256 与 manifest',
@@ -64,6 +66,37 @@ function officialCatalogSourceLabel(catalog) {
   const source = catalog?.source;
   if (!source || typeof source !== 'object') return officialRepositoryLabel;
   return [source.owner, source.repository].filter(Boolean).join('/') || officialRepositoryLabel;
+}
+
+export function normalizeOfficialDownloadSource(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return officialDownloadSources.has(normalized) ? normalized : 'auto';
+}
+
+function officialDownloadSourceLabel(value) {
+  return {
+    auto: '自动（GitHub 优先，传输失败时尝试 Gitee）',
+    github: 'GitHub',
+    gitee: 'Gitee',
+  }[normalizeOfficialDownloadSource(value)];
+}
+
+function loadOfficialDownloadSource() {
+  try {
+    return normalizeOfficialDownloadSource(globalThis.localStorage?.getItem(officialDownloadSourceStorageKey));
+  } catch (_error) {
+    return 'auto';
+  }
+}
+
+function saveOfficialDownloadSource(value) {
+  const normalized = normalizeOfficialDownloadSource(value);
+  try {
+    globalThis.localStorage?.setItem(officialDownloadSourceStorageKey, normalized);
+  } catch (_error) {
+    // Source preference is optional browser-only state.
+  }
+  return normalized;
 }
 
 function safeStrings(value) {
@@ -967,7 +1000,7 @@ function lifecycleRequest(request, id, action, confirmation = '') {
   throw new Error('当前操作没有安全的公共契约');
 }
 
-export function officialRequest(request, moduleInfo, action) {
+export function officialRequest(request, moduleInfo, action, downloadSource = 'auto') {
   const id = String(moduleInfo.module_id || '');
   const version = String(moduleInfo.version || '');
   const actionPath = {
@@ -979,7 +1012,11 @@ export function officialRequest(request, moduleInfo, action) {
   return request(`/api/v1/modules/${encodeURIComponent(id)}/${actionPath}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ version, confirmation: `${id}@${version}` }),
+    body: JSON.stringify({
+      version,
+      confirmation: `${id}@${version}`,
+      download_source: normalizeOfficialDownloadSource(downloadSource),
+    }),
     timeoutMs: 120000,
   });
 }
@@ -1004,6 +1041,7 @@ function operationError(error) {
     official_module_redirect_rejected: '下载重定向离开受信来源',
     official_catalog_source_untrusted: '官方目录来源校验失败',
     official_github_rate_limited: 'GitHub 匿名访问暂时受限',
+    official_gitee_rate_limited: 'Gitee 匿名访问暂时受限',
     local_module_upload_content_type_invalid: '本地安装包类型无效',
     local_module_upload_sha256_required: '缺少本地安装包摘要',
     local_module_upload_integrity_mismatch: '本地安装包摘要不匹配',
@@ -1047,6 +1085,7 @@ export function setupModuleManagement({
   let localUploadSelectionVersion = 0;
   let batchMode = false;
   let batchBusy = false;
+  let officialDownloadSource = loadOfficialDownloadSource();
   const batchSelection = new Set();
 
   function setLocalModuleId(value, origin) {
@@ -1158,6 +1197,11 @@ export function setupModuleManagement({
     renderOfficialPhase(officialState);
     renderOfficialModules(officialState, lastCatalog, batchMode, batchSelection);
     const refresh = document.querySelector('#refresh-official-module-catalog');
+    const source = document.querySelector('#official-module-download-source');
+    if (source) {
+      source.value = officialDownloadSource;
+      source.disabled = batchBusy || interactionBlockedPhases.has(officialState.phase);
+    }
     if (refresh) {
       refresh.disabled = batchBusy || interactionBlockedPhases.has(officialState.phase);
       refresh.setAttribute('aria-busy', officialState.phase === 'refreshing' ? 'true' : 'false');
@@ -1272,6 +1316,8 @@ export function setupModuleManagement({
     try {
       const catalog = await request('/api/v1/modules/official-catalog/refresh', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ download_source: officialDownloadSource }),
         timeoutMs: 30000,
       });
       officialState = transitionOfficialModuleState(officialState, { type: 'CACHE_READY', catalog });
@@ -1347,7 +1393,7 @@ export function setupModuleManagement({
     officialState = transitionOfficialModuleState(officialState, { type: 'DOWNLOAD' });
     renderOfficial();
     try {
-      const response = await officialRequest(request, moduleInfo, action);
+      const response = await officialRequest(request, moduleInfo, action, officialDownloadSource);
       const verb = action === 'install_official' ? '安装' : action === 'update_official' ? '更新' : '回滚';
       officialState = transitionOfficialModuleState(officialState, {
         type: 'SUCCESS',
@@ -1403,7 +1449,7 @@ export function setupModuleManagement({
     const summary = document.querySelector('#official-module-batch-summary');
     const list = document.querySelector('#official-module-batch-list');
     if (!dialog || !summary || !list || typeof dialog.showModal !== 'function') return;
-    summary.textContent = `固定来源：${officialCatalogSourceLabel(officialState.catalog)}；${plan.queue.length} 个模块；总大小 ${formatBytes(plan.totalBytes)}；必需依赖：${listText(plan.dependencies)}；权限：${listText(plan.permissions)}。Core 会逐包独立校验，安装后不会自动启用或重启。`;
+    summary.textContent = `目录身份：${officialCatalogSourceLabel(officialState.catalog)}；下载源：${officialDownloadSourceLabel(officialDownloadSource)}；${plan.queue.length} 个模块；总大小 ${formatBytes(plan.totalBytes)}；必需依赖：${listText(plan.dependencies)}；权限：${listText(plan.permissions)}。Core 会逐包独立校验，安装后不会自动启用或重启。`;
     list.replaceChildren(...plan.queue.map((item, index) => {
       const row = document.createElement('li');
       row.textContent = `${index + 1}. ${item.name || item.module_id} ${item.version}`;
@@ -1436,7 +1482,7 @@ export function setupModuleManagement({
           message: `正在安装 ${index + 1}/${total}：${officialModuleKey(item)}`,
         });
         renderOfficial();
-        await officialRequest(request, item, 'install_official');
+        await officialRequest(request, item, 'install_official', officialDownloadSource);
       });
       const completed = result.completed.map(officialModuleKey);
       const remaining = result.remaining.map(officialModuleKey);
@@ -1630,7 +1676,7 @@ export function setupModuleManagement({
     appendText(
       confirmation,
       'p',
-      `固定来源：${officialRepositoryLabel}；大小：${formatBytes(moduleInfo.package_size)}；SHA-256：${moduleInfo.package_sha256 || '未提供'}。请求由 Core 下载、校验并安装；浏览器不下载或解包。安装后不会自动启用或重启。`,
+      `目录身份：${officialRepositoryLabel}；下载源：${officialDownloadSourceLabel(officialDownloadSource)}；大小：${formatBytes(moduleInfo.package_size)}；SHA-256：${moduleInfo.package_sha256 || '未提供'}。请求由 Core 下载、校验并安装；浏览器不下载或解包。安装后不会自动启用或重启。`,
       'hint module-confirmation-copy',
     );
     const actions = document.createElement('div');
@@ -1653,6 +1699,16 @@ export function setupModuleManagement({
   document.querySelector('#refresh-official-module-catalog')?.addEventListener(
     'click',
     () => void refreshOfficialCatalog(),
+    { signal: abortController.signal },
+  );
+  document.querySelector('#official-module-download-source')?.addEventListener(
+    'change',
+    (event) => {
+      officialDownloadSource = saveOfficialDownloadSource(event.target.value);
+      event.target.value = officialDownloadSource;
+      batchSelection.clear();
+      renderOfficial();
+    },
     { signal: abortController.signal },
   );
   document.querySelector('#toggle-official-module-batch')?.addEventListener(

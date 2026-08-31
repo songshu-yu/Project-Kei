@@ -4,7 +4,7 @@
 
 Project Kei 的首次安装只提供一个可稳定启动的基础集合，用户以后按需安装、配置、启用、停用、升级或卸载其他功能。该能力建立在[模块化单体规范](modular-monolith.md)之上，不改变“一个 FastAPI 主进程”的总体架构，也不要求把每个功能拆成微服务。
 
-本规范定义模块包和运行生命周期；PK-010 实现固定官方 GitHub Release 目录、
+本规范定义模块包和运行生命周期；PK-010 实现固定官方 GitHub/Gitee 双镜像目录、
 本地高级导入和动态加载，各业务模块仍由自己的 `PK-xxx` 任务迁移。模块作者的
 真实代码接缝、打包、测试和发布门禁见
 [模块包交互与发布契约](module-package-contract.md)。
@@ -289,8 +289,11 @@ POST   /api/v1/modules/{module_id}/rollback-official
 ```
 
 owner、repository、catalog URL 和 package URL 均由项目固定，客户端不能提交。
-官方目录 GET 只读本机缓存/内置空基线；refresh 才访问固定 catalog URL。
-install/update 下载固定 Release asset，限制重定向、时间、字节数并流式核对
+客户端只能选择固定枚举 `auto|github|gitee`；普通 GET 只读本机缓存/内置空基线，
+refresh 才访问对应的固定 catalog URL。`auto` 先访问 GitHub，只在连接、超时、限流
+或明确可重试服务端故障时切换 Gitee；摘要、大小、manifest、URL/重定向及其他安全
+失败不得触发镜像回退。install/update 下载固定 GitHub Release asset 或同字节 Gitee
+`packages/<release_tag>/<asset_name>`，限制重定向、时间、字节数并流式核对
 SHA-256，随后复用本地包的 manifest、依赖、Core 保留和原子安装规则。官方
 rollback 不下载，只允许目录仍信任且本地安装内容摘要未变化的前一版本。
 
@@ -320,9 +323,11 @@ focus 的可审阅包源位于 `server/features/focus/package_source/`，正式 
 
 ## 安全与集中发布
 
-- 官方来源固定为 `songshu-yu/Project-Kei-Modules` 与集中批次 Release asset，匿名访问
-  且不读取 GitHub Token；Catalog 固定精确字节数、ZIP/manifest SHA-256。普通用户
-  不能输入 URL。同一批次的模块共享 Release tag，但每个附件名和摘要仍独立冻结。
+- 官方来源固定为 GitHub `songshu-yu/Project-Kei-Modules` 与 Gitee
+  `songshuyu957/Project-Kei-Modules` 镜像。GitHub 使用集中批次 Release asset，
+  Gitee 使用固定 raw 路径；两者必须是逐字节相同的 ZIP，匿名访问且
+  不读取 Token。Catalog 固定精确字节数、ZIP/manifest SHA-256，普通用户不能输入
+  URL。同一批次的模块共享 Release tag，但每个附件名和摘要仍独立冻结。
 - 解压必须阻止绝对路径、`..` 路径穿越、符号链接逃逸和覆盖 Core 文件。
 - 模块包不得包含 `.env`、Token、Cookie、个人缓存、模型输出或其他机器上的运行状态。
 - 安装管理器不得为完成一次测试而发送 QQ 消息、触发真实采集、调用付费 LLM 或生成 TTS。
@@ -344,7 +349,7 @@ focus 的可审阅包源位于 `server/features/focus/package_source/`，正式 
 
 ## 试点与全量迁移结果
 
-1. `PK-010` 实现 manifest Schema、注册表、状态查询、固定官方 GitHub Release
+1. `PK-010` 实现 manifest Schema、注册表、状态查询、固定官方 GitHub/Gitee 双镜像
    目录与本地高级导入的共同生命周期骨架。
 2. `PK-100` 拆出控制台公共外壳和动态面板入口。
 3. `PK-180` 将专注计时作为第一个端到端可安装模块，保留现有 `/focus/*` 接口兼容。

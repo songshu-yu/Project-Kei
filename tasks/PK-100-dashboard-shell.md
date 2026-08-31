@@ -1,6 +1,6 @@
 # PK-100 — 控制台公共外壳
 
-- 状态：已完成
+- 状态：待集成
 - 优先级：P1
 - 所属模块：`dashboard`
 - 依赖任务：PK-001、PK-010、PK-020、PK-211
@@ -1245,3 +1245,28 @@ PK-000 确认，完成前执行本任务的全部文档和验证门禁。
 - [x] LOCAL_README — 不适用：未记录本机路径、registry、runtime、状态或秘密。
 - [x] AGENT_RULES — 不适用：未改变协作与安全规则。
 - [x] VALIDATION — PK-900 聚焦复验、总控 HTML/JS 契约、docs30 与范围 diff-check 均通过。
+
+## 官方模块下载来源与镜像故障恢复（2026-08-26）
+
+- 测试人员在批量安装时遇到 GitHub Release 资产下载失败。模块中心新增固定来源选择：
+  “自动（推荐）”“仅 GitHub”“仅 Gitee”。选择仅保存在浏览器 `localStorage`，加载、
+  切换、展开和批量勾选均零网络、零生命周期 POST。
+- 刷新目录、单项安装、更新和批量安装均把有限枚举 `download_source` 交给 PK-010；
+  不接受任意 URL、仓库、Token、Cookie、代理或路径。确认对话框显示实际选择，结果
+  显示服务端最终使用的镜像；Gitee 限流与下载错误使用有限、可操作提示。
+- 自动模式的具体回退规则完全由 PK-010 服务端执行。前端不能对摘要/manifest 失败
+  自行重试另一来源，也不会改变既有批量拓扑、严格串行、失败即停和成功后 registry/
+  Catalog 双 GET 恢复语义。
+- 永久静态/Browser 契约覆盖来源控件、默认 auto、刷新/安装请求体、切换零请求、批量
+  复用同一来源和窄屏无溢出。任务重新进入“待集成”，等待双镜像实际发布和累计验收。
+
+### 本增量完成文档门禁
+
+- [x] TASK_RECORD — 已记录用户故障、界面行为、接口边界、零网络语义和测试。
+- [x] TASKS_BOARD — 已把本轮重新打开的 PK-100 同步为“待集成”。
+- [x] PUBLIC_README — 已同步自动/GitHub/Gitee 的用户操作与安全边界。
+- [x] MODULE_CATALOG — 不适用：前端只消费固定目录，不修改包版本或摘要。
+- [x] ARCHITECTURE_DOCS — 已由 PK-010 规范同步双镜像和回退分类。
+- [x] LOCAL_README — 不适用：来源偏好仅在浏览器保存，不涉及本机私密路径或配置。
+- [x] AGENT_RULES — 不适用：未改变协作、安全、测试或 Git 规则。
+- [x] VALIDATION — HTML/JS、Catalog fake、Dashboard 契约、移动端及 diff 门禁已执行。

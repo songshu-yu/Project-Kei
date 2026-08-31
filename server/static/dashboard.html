@@ -80,7 +80,7 @@
     <h2>模块管理</h2>
     <p class="hint">
       从 Project Kei 官方目录安装模块，并管理本机 registry 中的模块。普通页面加载只读取
-      Core 状态、本机官方目录缓存与 registry；不会访问 GitHub，也不会请求未安装业务接口。
+      Core 状态、本机官方目录缓存与 registry；不会访问 GitHub 或 Gitee，也不会请求未安装业务接口。
     </p>
 
     <section class="module-management-group" aria-labelledby="official-modules-heading">
@@ -88,10 +88,19 @@
         <div>
           <h3 id="official-modules-heading">可安装模块</h3>
           <p class="hint">
-            展示 Project Kei 官方 GitHub Catalog 缓存中的受信模块版本。只有显式刷新目录才允许 Core 联网。
+            展示 Project Kei 官方 Catalog 缓存中的受信模块版本。只有显式刷新目录或安装/更新才允许 Core 联网；
+            自动模式会在 GitHub 传输失败时尝试固定 Gitee 镜像，所有来源都执行相同大小、SHA-256 与 manifest 校验。
           </p>
         </div>
         <div class="module-management-heading-actions">
+          <label class="official-module-source-control" for="official-module-download-source">
+            <span>下载源</span>
+            <select id="official-module-download-source">
+              <option value="auto">自动（GitHub → Gitee）</option>
+              <option value="github">仅 GitHub</option>
+              <option value="gitee">仅 Gitee</option>
+            </select>
+          </label>
           <button class="secondary" id="toggle-official-module-batch" type="button"
                   aria-controls="official-module-batch-toolbar official-module-catalog"
                   aria-pressed="false">批量选择</button>

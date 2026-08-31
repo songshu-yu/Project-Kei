@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from core.modules.manager import ModuleManager
 from core.modules.official_catalog import (
     OFFICIAL_CATALOG_URL,
+    OFFICIAL_GITEE_CATALOG_URL,
     OfficialCatalogHTTPClient,
     OfficialCatalogStore,
     validate_official_catalog,
@@ -362,6 +363,118 @@ async def test_origin_confirmation_and_catalog_source_guards() -> None:
             assert getattr(exc, "code", "") == "official_catalog_source_untrusted"
 
 
+async def test_fixed_gitee_mirror_selection_and_transport_fallback() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        payload = manifest("mirror_sample", "1.0.0")
+        archive, raw = package_bytes(payload)
+        item = release(payload, archive, raw)
+        gitee_package_url = (
+            "https://gitee.com/songshuyu957/Project-Kei-Modules/raw/main/packages/"
+            f"{item['release_tag']}/{item['asset_name']}"
+        )
+        requests: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            url = str(request.url)
+            requests.append(url)
+            if url == OFFICIAL_CATALOG_URL:
+                raise httpx.ConnectError("github unavailable", request=request)
+            if url == OFFICIAL_GITEE_CATALOG_URL:
+                return httpx.Response(200, json=catalog([item]))
+            if url == item["package_url"]:
+                raise httpx.ConnectError("github asset unavailable", request=request)
+            if url == gitee_package_url:
+                return httpx.Response(
+                    200,
+                    content=archive,
+                    headers={"Content-Length": str(len(archive))},
+                )
+            return httpx.Response(404)
+
+        manager, service = make_service(root, catalog([item]), handler)
+        client, original_manager, original_official = await api_client(manager, service)
+        try:
+            refreshed = await client.post(
+                "/api/v1/modules/official-catalog/refresh",
+                json={"download_source": "auto"},
+            )
+            assert refreshed.status_code == 200
+            assert refreshed.json()["refresh_source"] == "gitee"
+            assert requests[:2] == [OFFICIAL_CATALOG_URL, OFFICIAL_GITEE_CATALOG_URL]
+
+            request_count = len(requests)
+            github_only = await client.post(
+                "/api/v1/modules/official-catalog/refresh",
+                json={"download_source": "github"},
+            )
+            assert github_only.status_code == 502
+            assert requests[request_count:] == [OFFICIAL_CATALOG_URL]
+
+            installed = await client.post(
+                "/api/v1/modules/mirror_sample/install-official",
+                json={
+                    "version": "1.0.0",
+                    "confirmation": "mirror_sample@1.0.0",
+                    "download_source": "auto",
+                },
+            )
+            assert installed.status_code == 200, installed.text
+            assert installed.json()["official_operation"]["download_source"] == "gitee"
+            assert (
+                installed.json()["official_operation"]["source"]
+                == f"gitee:songshuyu957/Project-Kei-Modules@{item['release_tag']}"
+            )
+            assert requests[-2:] == [item["package_url"], gitee_package_url]
+
+            request_count = len(requests)
+            invalid = await client.post(
+                "/api/v1/modules/official-catalog/refresh",
+                json={"download_source": "https://evil.example/catalog.json"},
+            )
+            assert invalid.status_code == 422
+            assert len(requests) == request_count
+        finally:
+            await client.aclose()
+            restore_router(original_manager, original_official)
+
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        payload = manifest("no_integrity_fallback", "1.0.0")
+        archive, raw = package_bytes(payload)
+        item = release(payload, archive, raw)
+        corrupt = bytearray(archive)
+        corrupt[-1] ^= 1
+        requests: list[str] = []
+
+        def corrupted_github(request: httpx.Request) -> httpx.Response:
+            requests.append(str(request.url))
+            return httpx.Response(
+                200,
+                content=bytes(corrupt),
+                headers={"Content-Length": str(len(corrupt))},
+            )
+
+        manager, service = make_service(root, catalog([item]), corrupted_github)
+        client, original_manager, original_official = await api_client(manager, service)
+        try:
+            failed = await client.post(
+                "/api/v1/modules/no_integrity_fallback/install-official",
+                json={
+                    "version": "1.0.0",
+                    "confirmation": "no_integrity_fallback@1.0.0",
+                    "download_source": "auto",
+                },
+            )
+            assert failed.status_code == 422
+            assert failed.json()["detail"]["code"] == "official_module_integrity_mismatch"
+            assert requests == [item["package_url"]]
+            assert manager.snapshot() == {}
+        finally:
+            await client.aclose()
+            restore_router(original_manager, original_official)
+
+
 def test_catalog_builder_determinism() -> None:
     spec = importlib.util.spec_from_file_location(
         "build_official_module_catalog_test",
@@ -468,6 +581,7 @@ def main() -> int:
     asyncio.run(test_get_refresh_install_update_rollback_and_uninstall())
     asyncio.run(test_fail_closed_downloads_and_cache_fallback())
     asyncio.run(test_origin_confirmation_and_catalog_source_guards())
+    asyncio.run(test_fixed_gitee_mirror_selection_and_transport_fallback())
     test_catalog_builder_determinism()
     print("official module catalog tests passed")
     return 0

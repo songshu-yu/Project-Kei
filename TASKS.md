@@ -47,7 +47,7 @@
 | PK-011 | 全量业务模块可安装化与官方发布 | 已完成 | P0 | PK-010、PK-100、PK-180 | [任务说明](tasks/PK-011-installable-module-rollout.md) |
 | PK-020 | Windows 安装、环境锁定与可移植启动 | 待集成 | P0 | PK-001、PK-010、PK-100、PK-140、PK-200、PK-210、PK-211、PK-212 | [任务说明](tasks/PK-020-windows-install.md) |
 | PK-030 | Python 测试发现、质量基线与 CI 收编 | 已完成 | P0 | PK-001、PK-020 | [任务说明](tasks/PK-030-python-test-quality.md) |
-| PK-100 | 控制台公共外壳 | 已完成 | P1 | PK-001、PK-010 | [任务说明](tasks/PK-100-dashboard-shell.md) |
+| PK-100 | 控制台公共外壳 | 待集成 | P1 | PK-001、PK-010 | [任务说明](tasks/PK-100-dashboard-shell.md) |
 | PK-110 | 每日情报核心、缓存与 Kei 播报 | 待集成 | P1 | PK-001、PK-010、PK-100、PK-200 | [任务说明](tasks/PK-110-daily-briefing.md) |
 | PK-115 | 每日情报来源注册表与配置 | 已完成 | P1 | PK-001、PK-010、PK-100、PK-110 | [任务说明](tasks/PK-115-intel-source-registry.md) |
 | PK-119 | 情报来源事后收口、共享装配与冲突审计 | 已完成 | P0 | PK-110、PK-115、PK-120、PK-130、PK-131、PK-132、PK-133、PK-134 | [任务说明](tasks/PK-119-intel-sources-closeout.md) |

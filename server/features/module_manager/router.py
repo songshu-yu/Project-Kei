@@ -20,7 +20,12 @@ from core.modules.exceptions import (
     SidecarReadinessError,
 )
 from core.modules.official_catalog import OfficialCatalogError
-from .models import InstallModuleRequest, OfficialModuleRequest, PurgeModuleDataRequest
+from .models import (
+    InstallModuleRequest,
+    OfficialCatalogRefreshRequest,
+    OfficialModuleRequest,
+    PurgeModuleDataRequest,
+)
 from .service import get_module_manager, get_official_module_service
 
 
@@ -50,7 +55,7 @@ def _raise_http(exc: Exception) -> None:
             "official_module_conflict",
         }:
             status = 409
-        elif exc.code == "official_github_rate_limited":
+        elif exc.code in {"official_github_rate_limited", "official_gitee_rate_limited"}:
             status = 429
         elif exc.code in {
             "official_catalog_refresh_failed",
@@ -94,10 +99,15 @@ async def official_catalog(request: Request) -> dict:
 
 
 @router.post("/official-catalog/refresh")
-async def refresh_official_catalog(request: Request) -> dict:
+async def refresh_official_catalog(
+    request: Request,
+    payload: Optional[OfficialCatalogRefreshRequest] = None,
+) -> dict:
     _require_local(request)
     try:
-        return get_official_module_service().refresh_catalog()
+        return get_official_module_service().refresh_catalog(
+            payload.download_source if payload is not None else "auto"
+        )
     except Exception as exc:
         _raise_http(exc)
 
@@ -114,6 +124,7 @@ async def install_official_module(
             module_id,
             payload.version,
             payload.confirmation,
+            payload.download_source,
         )
     except Exception as exc:
         _raise_http(exc)
@@ -131,6 +142,7 @@ async def update_official_module(
             module_id,
             payload.version,
             payload.confirmation,
+            payload.download_source,
         )
     except Exception as exc:
         _raise_http(exc)
