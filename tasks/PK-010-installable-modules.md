@@ -556,3 +556,33 @@ docs/architecture/modular-monolith.md、docs/architecture/installable-modules.md
   因此保留，旧模块的 release fragment、Catalog entry、ZIP 和摘要无需改动。
 - 永久回归同时覆盖旧模块省略字段和 QQ 非空字段保留；原远端失败的 7 个包测试及官方
   Catalog 专项均在本地逐项通过。任务仍为“待集成”，等待修复提交后的完整远端矩阵。
+
+## 官方模块 GitHub/Gitee 双镜像下载（2026-08-26）
+
+- 测试人员在批量安装 `conversation@1.0.2` 时于 `package_download` 阶段失败；同一资产
+  的大小和摘要在可访问 GitHub 的隔离环境中验证正常，故本轮定位为 GitHub Release/
+  CDN 传输可达性问题，而不是包内容损坏。
+- GitHub 官方身份仍固定为 `songshu-yu/Project-Kei-Modules`，新增固定 Gitee
+  `songshuyu957/Project-Kei-Modules` raw 镜像：目录 `catalog/official-catalog.json`，
+  附件 `packages/<release_tag>/<asset_name>`。两端必须
+  使用相同 Catalog、文件大小、ZIP SHA-256 和 manifest SHA-256；镜像不得重新打包。
+- 请求只接受 `download_source=auto|github|gitee`。`auto` 先 GitHub，且只对连接失败、
+  超时、限流或明确可重试服务端状态切换 Gitee。摘要、大小、manifest、Catalog Schema、
+  路径、重定向或其他安全失败立即停止，不能通过更换镜像绕过校验。
+- 普通 Catalog GET、页面加载和来源切换继续零网络；只有显式刷新、安装或更新联网。
+  浏览器不能提交仓库、URL、Token、Cookie、代理、路径或命令。响应只返回有限来源名，
+  不返回下载签名、凭据或本机路径。
+- 永久 fake 回归覆盖 GitHub 连接失败后 Gitee 成功、强制 GitHub 零回退、Gitee 包下载、
+  非法来源在 I/O 前 422，以及 GitHub 返回同大小损坏包时零 Gitee 请求。
+
+### 本增量完成文档门禁
+
+- [x] TASK_RECORD — 已记录事故证据、镜像身份、回退分类、数据副作用与验证。
+- [x] TASKS_BOARD — PK-010 原本即“待集成”，保持不变。
+- [x] PUBLIC_README — 已同步双镜像选择、自动回退和安全失败不回退规则。
+- [x] MODULE_CATALOG — Catalog 内容仍固定同一包摘要；未把镜像变成第二套包身份。
+- [x] ARCHITECTURE_DOCS — 已同步固定镜像、URL 边界、显式联网与完整性规则。
+- [x] LOCAL_README — 不适用：未记录本机路径、代理、Token 或其他私有配置。
+- [x] AGENT_RULES — 不适用：未改变协作、安全、测试或 Git 规则。
+- [x] VALIDATION — Catalog/下载 fake、Dashboard 契约、编译、JS 语法、文档和 diff 门禁
+  已执行；Gitee 实际镜像发布及双端逐资产抽验留给发布步骤。

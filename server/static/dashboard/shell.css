@@ -660,6 +660,14 @@ textarea { border-color:var(--line); background:var(--surface-strong); color:var
 }
 .official-module-batch-toolbar[hidden] { display:none; }
 .official-module-batch-toolbar .module-management-actions { margin-top:0; }
+.official-module-source-control {
+  display:grid;
+  gap:4px;
+  min-width:190px;
+  color:var(--muted);
+  font-size:.84rem;
+}
+.official-module-source-control select { width:100%; }
 .official-module-batch-list {
   max-height:min(40vh,320px);
   margin:0 0 16px;

@@ -99,6 +99,7 @@ def check_html_contract() -> None:
         "updated",
         "services",
         "refresh-official-module-catalog",
+        "official-module-download-source",
         "toggle-official-module-batch",
         "official-module-catalog-status",
         "official-module-install-confirmation",
@@ -145,7 +146,8 @@ def check_html_contract() -> None:
     assert not re.search(r"<script(?:\s[^>]*)?>(?!\s*</script>)", html)
     assert "只有 catalog、module_manager 与 dashboard 属于 Core 固定模块" in html
     assert "等待本机配置的 sidecar 受信面板" in html
-    assert "不会访问 GitHub，也不会请求未安装业务接口" in html
+    assert "不会访问 GitHub 或 Gitee，也不会请求未安装业务接口" in html
+    assert "自动模式会在 GitHub 传输失败时尝试固定 Gitee 镜像" in html
     assert "服务器路径" in html and "任意下载网址" in html
     assert 'accept=".zip,application/zip"' in html
     assert "选择文件不会联网或安装" in html
@@ -416,7 +418,12 @@ if (requests.filter(([path, method]) => path === '/api/v1/voice-control/asr/stop
     assert "package_source !== 'official_github_release'" in manager
     assert "下载并更新" in manager and "本机版本较新" in manager
     assert "await reloadLocalModuleViews(officialState.message)" in manager
-    assert "await officialRequest(request, item, 'install_official')" in manager
+    assert "await officialRequest(request, item, 'install_official', officialDownloadSource)" in manager
+    assert "project-kei-official-download-source-v1" in manager
+    assert "download_source: normalizeOfficialDownloadSource(downloadSource)" in manager
+    assert "JSON.stringify({ download_source: officialDownloadSource })" in manager
+    assert "GitHub 优先，传输失败时尝试 Gitee" in manager
+    assert "official-module-download-source" in manager
     assert "Promise.all" not in manager
     assert "批量安装已停止" in manager and "未执行" in manager
     assert "可手动刷新后继续操作" in manager
@@ -716,7 +723,9 @@ await manager.officialRequest(async (path, options) => {{
 if (updateCalls.length !== 1
     || updateCalls[0][0] !== '/api/v1/modules/older/update-official'
     || updateCalls[0][1].method !== 'POST'
-    || updateCalls[0][1].body !== JSON.stringify({{version:'1.1.0',confirmation:'older@1.1.0'}}))
+    || updateCalls[0][1].body !== JSON.stringify({{
+      version:'1.1.0',confirmation:'older@1.1.0',download_source:'auto',
+    }}))
   throw new Error('official update did not use the single frozen lifecycle request');
 let activeBatchRequests = 0;
 let maxActiveBatchRequests = 0;

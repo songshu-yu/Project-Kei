@@ -19,6 +19,9 @@ from core.modules.manager import ModuleManager
 from core.modules.manifest import version_satisfies
 from core.modules.official_catalog import (
     OFFICIAL_CATALOG_URL,
+    OFFICIAL_DOWNLOAD_SOURCES,
+    OFFICIAL_GITEE_CATALOG_URL,
+    OFFICIAL_GITEE_OWNER,
     OFFICIAL_OWNER,
     OFFICIAL_PUBLISHER,
     OFFICIAL_REPOSITORY,
@@ -42,7 +45,12 @@ class OfficialModuleService:
         self.http_client = http_client
         self._lock = threading.RLock()
 
-    def _catalog_view(self, *, refresh_status: str = "not_requested") -> Dict[str, Any]:
+    def _catalog_view(
+        self,
+        *,
+        refresh_status: str = "not_requested",
+        refresh_source: str = "none",
+    ) -> Dict[str, Any]:
         catalog, cache_source = self.store.load()
         snapshot = self.manager.snapshot()
         modules = []
@@ -69,11 +77,17 @@ class OfficialModuleService:
                 "owner": OFFICIAL_OWNER,
                 "repository": OFFICIAL_REPOSITORY,
                 "catalog_url": OFFICIAL_CATALOG_URL,
+                "catalog_mirrors": {
+                    "github": OFFICIAL_CATALOG_URL,
+                    "gitee": OFFICIAL_GITEE_CATALOG_URL,
+                },
+                "download_sources": list(OFFICIAL_DOWNLOAD_SOURCES),
                 "anonymous_only": True,
             },
             "generated_at": catalog.generated_at,
             "cache_source": cache_source,
             "refresh_status": refresh_status,
+            "refresh_source": refresh_source,
             "network_accessed": refresh_status != "not_requested",
             "modules": modules,
         }
@@ -81,11 +95,14 @@ class OfficialModuleService:
     def list_catalog(self) -> Dict[str, Any]:
         return self._catalog_view()
 
-    def refresh_catalog(self) -> Dict[str, Any]:
+    def refresh_catalog(self, download_source: str = "auto") -> Dict[str, Any]:
         with self._lock:
-            catalog = self.http_client.fetch_catalog()
+            catalog, actual_source = self.http_client.fetch_catalog_with_source(download_source)
             self.store.save(catalog)
-            return self._catalog_view(refresh_status="success")
+            return self._catalog_view(
+                refresh_status="success",
+                refresh_source=actual_source,
+            )
 
     def _release(self, module_id: str, version: str) -> OfficialModuleRelease:
         catalog, _ = self.store.load()
@@ -148,10 +165,15 @@ class OfficialModuleService:
         release: OfficialModuleRelease,
         *,
         update: bool,
+        download_source: str,
     ) -> Dict[str, Any]:
         with tempfile.TemporaryDirectory(prefix="project-kei-official-module-") as temp:
             archive = Path(temp) / "package.zip"
-            progress = self.http_client.download(release, archive)
+            progress = self.http_client.download(
+                release,
+                archive,
+                download_source,
+            )
             validate_release_manifest(archive, release, self.manager.core_version)
             try:
                 if update:
@@ -182,21 +204,46 @@ class OfficialModuleService:
             "received_bytes": progress["received_bytes"],
             "total_bytes": release.package_size,
             "sha256": progress["sha256"],
-            "source": f"github:{OFFICIAL_OWNER}/{OFFICIAL_REPOSITORY}@{release.release_tag}",
+            "source": (
+                f"{progress['source']}:"
+                f"{OFFICIAL_GITEE_OWNER if progress['source'] == 'gitee' else OFFICIAL_OWNER}/"
+                f"{OFFICIAL_REPOSITORY}@{release.release_tag}"
+            ),
+            "download_source": progress["source"],
         }
         return result
 
-    def install(self, module_id: str, version: str, confirmation: str) -> Dict[str, Any]:
+    def install(
+        self,
+        module_id: str,
+        version: str,
+        confirmation: str,
+        download_source: str = "auto",
+    ) -> Dict[str, Any]:
         with self._lock:
             release = self._release(module_id, version)
             self._confirm(release, confirmation)
-            return self._download_and_apply(release, update=False)
+            return self._download_and_apply(
+                release,
+                update=False,
+                download_source=download_source,
+            )
 
-    def update(self, module_id: str, version: str, confirmation: str) -> Dict[str, Any]:
+    def update(
+        self,
+        module_id: str,
+        version: str,
+        confirmation: str,
+        download_source: str = "auto",
+    ) -> Dict[str, Any]:
         with self._lock:
             release = self._release(module_id, version)
             self._confirm(release, confirmation)
-            return self._download_and_apply(release, update=True)
+            return self._download_and_apply(
+                release,
+                update=True,
+                download_source=download_source,
+            )
 
     def rollback(self, module_id: str, version: str, confirmation: str) -> Dict[str, Any]:
         with self._lock:

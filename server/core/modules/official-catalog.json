@@ -86,12 +86,12 @@
       "version": "1.0.2"
     },
     {
-      "asset_name": "daily-briefing-1.0.2.zip",
+      "asset_name": "daily-briefing-1.0.3.zip",
       "conflicts": [],
       "core_compatibility": ">=1.0.0 <2.0.0",
       "data_policy": "preserve_on_uninstall",
       "dependencies": [],
-      "manifest_sha256": "d567a49c2a5fcb7f5d185a2c7ead7d3b7abb77dd6abc9673e90f8d668694114c",
+      "manifest_sha256": "188321dee33fa267b0001ba0748bb04007d7a8054b89f498a19f153d7f77a396",
       "module_id": "daily_briefing",
       "name": "每日情报",
       "optional_dependencies": [
@@ -103,17 +103,18 @@
         "papers",
         "rss_intel",
         "conversation",
-        "voice"
+        "voice",
+        "life_forecast"
       ],
-      "package_sha256": "02d97afa3081921006128d3f511c24071343bf284162490d3fb791ee181c0de7",
-      "package_size": 126244,
-      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.02/daily-briefing-1.0.2.zip",
+      "package_sha256": "25335e3c51d8d7cf690a3aaf620164de6f7a11d6ca50c17a2f9ff26689636d9f",
+      "package_size": 145148,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.19/daily-briefing-1.0.3.zip",
       "permissions": [
         "local_state"
       ],
-      "release_tag": "modules-2026.08.02",
+      "release_tag": "modules-2026.08.19",
       "requires_restart": true,
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "asset_name": "demon_slayer-1.0.1.zip",
@@ -240,6 +241,27 @@
       "version": "1.1.6"
     },
     {
+      "asset_name": "life_forecast-1.0.0.zip",
+      "conflicts": [],
+      "core_compatibility": ">=1.0.0 <2.0.0",
+      "data_policy": "preserve_on_uninstall",
+      "dependencies": [],
+      "manifest_sha256": "ef3673c9f973c9b231c41ed03649e7e046a0c07f67dc61c7431860c07336986c",
+      "module_id": "life_forecast",
+      "name": "每日生活预报",
+      "optional_dependencies": [],
+      "package_sha256": "b1f981a23e6fca2dcb4cd056c47ef25c9aa3d03a61111fe4a3a498b45eeb3a99",
+      "package_size": 43495,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.19/life_forecast-1.0.0.zip",
+      "permissions": [
+        "local_state",
+        "network_download"
+      ],
+      "release_tag": "modules-2026.08.19",
+      "requires_restart": true,
+      "version": "1.0.0"
+    },
+    {
       "asset_name": "papers-1.0.0.zip",
       "conflicts": [],
       "core_compatibility": ">=1.0.0 <2.0.0",
@@ -262,12 +284,12 @@
       "version": "1.0.0"
     },
     {
-      "asset_name": "qq_bridge-0.1.24.zip",
+      "asset_name": "qq_bridge-0.1.26.zip",
       "conflicts": [],
       "core_compatibility": ">=1.0.0 <2.0.0",
       "data_policy": "preserve_on_uninstall",
       "dependencies": [],
-      "manifest_sha256": "7c6768a2128ceedb1128969d629d12e55055c3fe54b6cb629d9b8c03835f63ed",
+      "manifest_sha256": "526cba3c69e48161184349630cb9daa37494d54fbd7c7dbf75a310904f11ec30",
       "module_id": "qq_bridge",
       "name": "QQ Bridge",
       "optional_dependencies": [
@@ -277,15 +299,16 @@
         "demon_slayer",
         "fitness",
         "focus",
+        "life_forecast",
         "voice"
       ],
-      "package_sha256": "52767f2d81f92cf0d474ea5e0f9f7f4f4985caffb687ffa6c759e24114a936a8",
-      "package_size": 165308,
-      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.12/qq_bridge-0.1.24.zip",
+      "package_sha256": "9ab9c65ab25e7c357338f4654f3d46f383bb5f34d8179aa19c703ae89c5f8ae0",
+      "package_size": 172429,
+      "package_url": "https://github.com/songshu-yu/Project-Kei-Modules/releases/download/modules-2026.08.20/qq_bridge-0.1.26.zip",
       "permissions": [
         "local_state"
       ],
-      "release_tag": "modules-2026.08.12",
+      "release_tag": "modules-2026.08.20",
       "requires_restart": false,
       "runtime_requirements": [
         {
@@ -299,7 +322,7 @@
           ]
         }
       ],
-      "version": "0.1.24"
+      "version": "0.1.26"
     },
     {
       "asset_name": "rss_intel-1.0.0.zip",

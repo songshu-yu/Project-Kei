@@ -1,5 +1,7 @@
 """HTTP request models for local module lifecycle operations."""
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -15,3 +17,8 @@ class PurgeModuleDataRequest(BaseModel):
 class OfficialModuleRequest(BaseModel):
     version: str
     confirmation: str
+    download_source: Literal["auto", "github", "gitee"] = "auto"
+
+
+class OfficialCatalogRefreshRequest(BaseModel):
+    download_source: Literal["auto", "github", "gitee"] = "auto"

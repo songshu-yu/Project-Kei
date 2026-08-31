@@ -1,4 +1,4 @@
-"""Offline cumulative verification for the 19 official installable modules."""
+"""Offline cumulative verification for the 20 official installable modules."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ from features.fitness.package_builder import build_fitness_package
 from features.focus.package_builder import build_focus_package
 from features.github_intel.package_builder import build_github_intel_package
 from features.intel_sources.package_builder import build_intel_sources_package
+from features.life_forecast.package_builder import build_life_forecast_package
 from features.papers.package_builder import build_papers_package
 from features.rss_intel.package_builder import build_rss_intel_package
 from features.voice.package_builder import build_voice_package
@@ -57,6 +58,7 @@ BUILDERS = (
     ("focus", build_focus_package, SERVER_ROOT / "features" / "focus"),
     ("github_intel", build_github_intel_package, SERVER_ROOT / "features" / "github_intel"),
     ("intel_sources", build_intel_sources_package, SERVER_ROOT / "features" / "intel_sources"),
+    ("life_forecast", build_life_forecast_package, SERVER_ROOT / "features" / "life_forecast"),
     ("papers", build_papers_package, SERVER_ROOT / "features" / "papers"),
     ("rss_intel", build_rss_intel_package, SERVER_ROOT / "features" / "rss_intel"),
     ("voice", build_voice_package, SERVER_ROOT / "features" / "voice"),
@@ -220,7 +222,7 @@ def check_official_release_set_is_deterministic_and_installable() -> None:
     catalog = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
     releases = {item["module_id"]: item for item in catalog["modules"]}
     expected_ids = {module_id for module_id, _, _ in BUILDERS}
-    assert len(BUILDERS) == 19
+    assert len(BUILDERS) == 20
     assert set(releases) == expected_ids
 
     with tempfile.TemporaryDirectory(prefix="kei-official-release-set-") as temp:
@@ -414,7 +416,7 @@ def main() -> int:
     check_official_in_process_lifecycle_cleanup()
     check_registration_failure_rolls_back_every_side_effect()
     check_provider_publication_failure_restores_intel_source_state()
-    print("official 19-module release-set tests passed")
+    print("official 20-module release-set tests passed")
     return 0
 
 

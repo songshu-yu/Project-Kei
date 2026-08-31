@@ -1,4 +1,4 @@
-"""Trusted, cacheable GitHub Release catalog for optional Project Kei modules."""
+"""Trusted, cacheable dual-source catalog for optional Project Kei modules."""
 
 from __future__ import annotations
 
@@ -30,12 +30,18 @@ from .manifest import (
 
 
 OFFICIAL_OWNER = "songshu-yu"
+OFFICIAL_GITEE_OWNER = "songshuyu957"
 OFFICIAL_REPOSITORY = "Project-Kei-Modules"
 OFFICIAL_PUBLISHER = "Project Kei"
 OFFICIAL_CATALOG_URL = (
     "https://raw.githubusercontent.com/"
     f"{OFFICIAL_OWNER}/{OFFICIAL_REPOSITORY}/main/catalog/official-catalog.json"
 )
+OFFICIAL_GITEE_CATALOG_URL = (
+    f"https://gitee.com/{OFFICIAL_GITEE_OWNER}/{OFFICIAL_REPOSITORY}/"
+    "raw/main/catalog/official-catalog.json"
+)
+OFFICIAL_DOWNLOAD_SOURCES = ("auto", "github", "gitee")
 MAX_CATALOG_BYTES = 1024 * 1024
 MAX_OFFICIAL_PACKAGE_BYTES = 64 * 1024 * 1024
 _REDIRECT_STATUSES = {301, 302, 303, 307, 308}
@@ -46,6 +52,43 @@ _RELEASE_REDIRECT_HOSTS = {
 _HEX64 = re.compile(r"^[0-9a-fA-F]{64}$")
 _RELEASE_TOKEN = re.compile(r"^[0-9A-Za-z._-]{1,120}$")
 _ASSET_NAME = re.compile(r"^[0-9A-Za-z._-]{1,160}\.zip$")
+
+
+def normalize_official_download_source(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized not in OFFICIAL_DOWNLOAD_SOURCES:
+        raise OfficialCatalogError(
+            "official download source must be auto, github, or gitee",
+            code="official_download_source_invalid",
+            stage="source_selection",
+        )
+    return normalized
+
+
+def _source_order(value: str) -> tuple[str, ...]:
+    source = normalize_official_download_source(value)
+    return ("github", "gitee") if source == "auto" else (source,)
+
+
+def _catalog_url(source: str) -> str:
+    return OFFICIAL_CATALOG_URL if source == "github" else OFFICIAL_GITEE_CATALOG_URL
+
+
+def _gitee_package_url(release_tag: str, asset_name: str) -> str:
+    return (
+        f"https://gitee.com/{OFFICIAL_GITEE_OWNER}/{OFFICIAL_REPOSITORY}/"
+        f"raw/main/packages/{release_tag}/{asset_name}"
+    )
+
+
+def _transport_fallback_allowed(error: "OfficialCatalogError") -> bool:
+    return error.retryable and error.code in {
+        "official_catalog_refresh_failed",
+        "official_github_rate_limited",
+        "official_gitee_rate_limited",
+        "official_module_download_failed",
+        "official_module_download_timeout",
+    }
 
 
 class OfficialCatalogError(Exception):
@@ -427,15 +470,23 @@ class OfficialCatalogHTTPClient:
         self.max_redirects = max_redirects
         self.clock = clock
 
-    def fetch_catalog(self) -> OfficialModuleCatalog:
+    @staticmethod
+    def _rate_limit_error(source: str, *, stage: str, retry_after: Optional[str] = None) -> OfficialCatalogError:
+        return OfficialCatalogError(
+            f"official {source} source is rate limited",
+            code=f"official_{source}_rate_limited",
+            stage=stage,
+            retryable=True,
+            retry_after=retry_after,
+        )
+
+    def _fetch_catalog_from(self, source: str) -> OfficialModuleCatalog:
         try:
-            with self.client.stream("GET", OFFICIAL_CATALOG_URL) as response:
+            with self.client.stream("GET", _catalog_url(source)) as response:
                 if response.status_code in {403, 429}:
-                    raise OfficialCatalogError(
-                        "official GitHub catalog is rate limited",
-                        code="official_github_rate_limited",
+                    raise self._rate_limit_error(
+                        source,
                         stage="catalog_download",
-                        retryable=True,
                         retry_after=response.headers.get("retry-after"),
                     )
                 if response.status_code != 200:
@@ -457,7 +508,13 @@ class OfficialCatalogHTTPClient:
             return validate_official_catalog(json.loads(bytes(payload).decode("utf-8")))
         except OfficialCatalogError:
             raise
-        except (httpx.HTTPError, UnicodeError, json.JSONDecodeError) as exc:
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise OfficialCatalogError(
+                "official catalog response is invalid",
+                code="official_catalog_invalid",
+                stage="catalog_validation",
+            ) from exc
+        except httpx.HTTPError as exc:
             raise OfficialCatalogError(
                 "official catalog refresh failed",
                 code="official_catalog_refresh_failed",
@@ -465,25 +522,61 @@ class OfficialCatalogHTTPClient:
                 retryable=True,
             ) from exc
 
+    def fetch_catalog_with_source(
+        self,
+        source: str = "auto",
+    ) -> tuple[OfficialModuleCatalog, str]:
+        sources = _source_order(source)
+        last_error: Optional[OfficialCatalogError] = None
+        for index, candidate in enumerate(sources):
+            try:
+                return self._fetch_catalog_from(candidate), candidate
+            except OfficialCatalogError as exc:
+                last_error = exc
+                if not _transport_fallback_allowed(exc) or index == len(sources) - 1:
+                    raise
+        assert last_error is not None
+        raise last_error
+
+    def fetch_catalog(self, source: str = "auto") -> OfficialModuleCatalog:
+        catalog, _ = self.fetch_catalog_with_source(source)
+        return catalog
+
     @staticmethod
-    def _trusted_redirect(url: str) -> str:
+    def _trusted_redirect(url: str, source: str) -> str:
         parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        trusted_host = (
+            host in _RELEASE_REDIRECT_HOSTS
+            if source == "github"
+            else host == "gitee.com"
+        )
         if (
             parsed.scheme != "https"
-            or (parsed.hostname or "").lower() not in _RELEASE_REDIRECT_HOSTS
+            or not trusted_host
             or parsed.username is not None
             or parsed.password is not None
             or parsed.fragment
+            or (source == "gitee" and parsed.query)
         ):
             raise OfficialCatalogError(
-                "official module redirect left the trusted GitHub asset boundary",
+                f"official module redirect left the trusted {source} asset boundary",
                 code="official_module_redirect_rejected",
                 stage="package_download",
             )
         return url
 
-    def download(self, release: OfficialModuleRelease, destination: Path) -> Dict[str, Any]:
-        current = release.package_url
+    def _download_from_source(
+        self,
+        release: OfficialModuleRelease,
+        destination: Path,
+        source: str,
+    ) -> Dict[str, Any]:
+        current = (
+            release.package_url
+            if source == "github"
+            else _gitee_package_url(release.release_tag, release.asset_name)
+        )
         deadline = self.clock() + self.total_timeout
         redirects = 0
         received = 0
@@ -508,18 +601,17 @@ class OfficialCatalogHTTPClient:
                                 stage="package_download",
                                 received_bytes=received,
                             )
-                        current = self._trusted_redirect(urljoin(current, location))
+                        current = self._trusted_redirect(urljoin(current, location), source)
                         redirects += 1
                         continue
                     if response.status_code in {403, 429}:
-                        raise OfficialCatalogError(
-                            "official GitHub module download is rate limited",
-                            code="official_github_rate_limited",
+                        error = self._rate_limit_error(
+                            source,
                             stage="package_download",
-                            retryable=True,
-                            received_bytes=received,
                             retry_after=response.headers.get("retry-after"),
                         )
+                        error.received_bytes = received
+                        raise error
                     if response.status_code != 200:
                         raise OfficialCatalogError(
                             "official module download failed",
@@ -581,7 +673,31 @@ class OfficialCatalogHTTPClient:
                 stage="package_download",
                 received_bytes=received,
             )
-        return {"received_bytes": received, "sha256": digest.hexdigest(), "redirects": redirects}
+        return {
+            "received_bytes": received,
+            "sha256": digest.hexdigest(),
+            "redirects": redirects,
+            "source": source,
+        }
+
+    def download(
+        self,
+        release: OfficialModuleRelease,
+        destination: Path,
+        source: str = "auto",
+    ) -> Dict[str, Any]:
+        sources = _source_order(source)
+        last_error: Optional[OfficialCatalogError] = None
+        for index, candidate in enumerate(sources):
+            try:
+                return self._download_from_source(release, destination, candidate)
+            except OfficialCatalogError as exc:
+                last_error = exc
+                Path(destination).unlink(missing_ok=True)
+                if not _transport_fallback_allowed(exc) or index == len(sources) - 1:
+                    raise
+        assert last_error is not None
+        raise last_error
 
     def close(self) -> None:
         if self._owns_client:
@@ -645,6 +761,9 @@ def validate_release_manifest(archive: Path, release: OfficialModuleRelease, cor
 __all__ = [
     "MAX_OFFICIAL_PACKAGE_BYTES",
     "OFFICIAL_CATALOG_URL",
+    "OFFICIAL_DOWNLOAD_SOURCES",
+    "OFFICIAL_GITEE_CATALOG_URL",
+    "OFFICIAL_GITEE_OWNER",
     "OFFICIAL_OWNER",
     "OFFICIAL_REPOSITORY",
     "OfficialCatalogError",
@@ -652,6 +771,7 @@ __all__ = [
     "OfficialCatalogStore",
     "OfficialModuleCatalog",
     "OfficialModuleRelease",
+    "normalize_official_download_source",
     "validate_official_catalog",
     "validate_release_manifest",
 ]
