@@ -475,6 +475,17 @@ def check_anonymous_fixed_official_acquisition() -> None:
                 "https://raw.githubusercontent.com/songshu-yu/"
                 "Project-Kei-Modules/main/catalog/official-catalog.json"
             ),
+            "catalog_mirrors": {
+                "github": (
+                    "https://raw.githubusercontent.com/songshu-yu/"
+                    "Project-Kei-Modules/main/catalog/official-catalog.json"
+                ),
+                "gitee": (
+                    "https://gitee.com/songshuyu957/Project-Kei-Modules/"
+                    "raw/main/catalog/official-catalog.json"
+                ),
+            },
+            "download_sources": ["auto", "github", "gitee"],
             "anonymous_only": True,
         }
         installed = service.install(
